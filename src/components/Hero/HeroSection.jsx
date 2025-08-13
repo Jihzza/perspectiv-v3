@@ -13,7 +13,7 @@ export default function HeroSection() {
     <section className="w-full h-auto pb-12">
       <div className="container mx-auto px-4 flex flex-col items-center">
         {/* Logo */}
-        <img src={PerspectivLogo} alt="Perspectiv Logo" />
+        <img src={PerspectivLogo} alt="Perspectiv Logo" className="w-50 h-50"/>
 
 
         {/* Service boxes */}

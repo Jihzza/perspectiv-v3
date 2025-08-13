@@ -26,7 +26,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1B2537] to-[#000000] text-white py-8">
+    <div className="min-h-screen text-white py-8">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
           <h1 className="text-4xl font-bold mb-8 text-center">Create your account</h1>

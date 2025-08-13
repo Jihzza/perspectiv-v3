@@ -31,7 +31,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-b from-[#1B2537] to-[#000000] text-white py-8">
+    <div className="h-full text-white grid place-items-center">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
           <h1 className="text-4xl font-bold mb-8 text-center">Log in to Perspectiv</h1>
