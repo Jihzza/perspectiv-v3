@@ -1,5 +1,6 @@
 import { FaRocket, FaComments, FaChartLine } from "react-icons/fa";
 import ServiceBox from "./ServiceBox"
+import PerspectivLogo from "../../assets/PerspectivLogo.svg"
 
 const services = [
   { icon: <FaRocket size={16} />, label: "Software" },
@@ -12,12 +13,8 @@ export default function HeroSection() {
     <section className="w-full h-auto pb-12">
       <div className="container mx-auto px-4 flex flex-col items-center">
         {/* Logo */}
-        <img
-          src="/src/assets/Perspectiv Logo.svg"
-          alt="Company logo"
-          className="h-50 select-none"
-          draggable="false"
-        />
+        <img src={PerspectivLogo} alt="Perspectiv Logo" />
+
 
         {/* Service boxes */}
         <div className="flex justify-center items-center gap-2 w-full">
