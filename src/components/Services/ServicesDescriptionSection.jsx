@@ -21,14 +21,10 @@ const services = [
 
 export default function ServicesDescriptionSection() {
   return (
-    <section className="w-full max-w-4xl mx-auto px-4 py-6">
-      <div className="grid gap-8 sm:grid-cols-3">
+    <section className="w-full max-w-5xl mx-auto px-4 py-10">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {services.map(({ title, paragraph }) => (
-          <ServiceDescriptionCard
-            key={title}
-            title={title}
-            paragraph={paragraph}
-          />
+          <ServiceDescriptionCard key={title} title={title} paragraph={paragraph} />
         ))}
       </div>
     </section>

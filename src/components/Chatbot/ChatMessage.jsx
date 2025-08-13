@@ -20,4 +20,3 @@ export default function ChatMessage({ isBot, text, logo }) {
       </div>
     );
   }
-  

@@ -1,46 +1,24 @@
-// DashboardKPI.jsx
-import { createClient } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
+import DashboardKPI from "../components/Dashboard/DashboardKPI";
 
-const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON);
-
-export default function DashboardKPI({ contextId = 'default' }) {
-  const [m, setM] = useState({ cost_reduction: 0, productivity_increase: 0, errors_reduction: 0 });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    // initial fetch
-    supabase.from('metrics').select('*').eq('context_id', contextId).maybeSingle()
-      .then(({ data }) => { if (!cancelled && data) setM(data); });
-
-    // subscribe to updates on that row
-    const channel = supabase
-      .channel('metrics-realtime') // channel name
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'metrics', filter: `context_id=eq.${contextId}` },
-        payload => setM(payload.new ?? payload.old)
-      )
-      .subscribe();
-
-    return () => { cancelled = true; supabase.removeChannel(channel); };
-  }, [contextId]);
-
+export default function DashboardPage() {
   return (
-    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, 1fr)' }}>
-      <Box title="Cost Reduction" value={m.cost_reduction + '%'} />
-      <Box title="Productivity Increase" value={m.productivity_increase + '%'} />
-      <Box title="Errors Reduction" value={m.errors_reduction + '%'} />
-    </div>
-  );
-}
+    <div className="h-full text-white">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-4xl font-bold mb-8">Dashboard</h1>
 
-function Box({ title, value }) {
-  return (
-    <div style={{ padding: 16, borderRadius: 14, boxShadow: '0 6px 18px rgba(0,0,0,.08)' }}>
-      <div style={{ fontSize: 14, opacity: .7 }}>{title}</div>
-      <div style={{ fontSize: 32, fontWeight: 700 }}>{value}</div>
+        <div className="max-w-4xl space-y-6">
+          {/* Shared KPI widget */}
+          <DashboardKPI contextId="default" />
+
+          {/* Additional Dashboard Content */}
+          <div className="bg-[#33ccff]/15 backdrop-blur-md rounded-xl p-6 border border-white/10">
+            <h3 className="text-xl font-semibold mb-4">Recent Activity</h3>
+            <div className="text-gray-300">
+              <p>No recent activity to display.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

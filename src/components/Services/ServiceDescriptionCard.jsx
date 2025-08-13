@@ -1,8 +1,12 @@
 export default function ServiceDescriptionCard({ title, paragraph }) {
   return (
-    <div className="space-y-2">
-      <h3 className="text-xl font-semibold text-center text-white">{title}</h3>
-      <p className="text-sm leading-relaxed text-center text-white">{paragraph}</p>
+    <div className="group rounded-xl p-6">
+      <h3 className="text-lg sm:text-xl font-semibold text-center text-white">
+        {title}
+      </h3>
+      <p className="mt-2 text-sm sm:text-base leading-relaxed text-center text-gray-300">
+        {paragraph}
+      </p>
     </div>
   );
 }

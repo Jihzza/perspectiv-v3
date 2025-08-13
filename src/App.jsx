@@ -1,28 +1,54 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePAge";
-import DashboardPage from "./pages/DashboardPage";
-import SettingsPage from "./pages/SettingsPage";
-import ProfilePage from "./pages/ProfilePage";
-import Header from "./components/Layout/Header";
-import BottomNavigation from "./components/Layout/BottomNavigation";
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import HomePage from './pages/HomePage'
+import DashboardPage from './pages/DashboardPage'
+import SettingsPage from './pages/SettingsPage'
+import ProfilePage from './pages/ProfilePage'
+import NotificationsPage from "./pages/NotificationsPage";
+import Header from './components/Layout/Header'
+import BottomNavigation from './components/Layout/BottomNavigation'
+
+import AuthProvider from './auth/AuthContext'
+import ProtectedRoute from './auth/ProtectedRoute'
+
+// Auth pages
+import LoginPage from './pages/auth/LoginPage'
+import SignUpPage from './pages/auth/SignUpPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import OAuthCallbackPage from './pages/auth/OAuthCallbackPage'
 
 export default function App() {
   return (
     <BrowserRouter>
-      {/* Put persistent UI here: header, sidebar, bottom nav, etc. */}
-      <Header />
-      <div className="pb-16"> {/* Add bottom padding to account for fixed bottom nav */}
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          {/* Optional 404 route */}
-          <Route path="*" element={<h1 className="p-6 text-center">Page Not Found</h1>} />
-        </Routes>
-      </div>
-      <BottomNavigation />
+      <AuthProvider>
+        <Header />
+        {/* Offset all content by the fixed header (h-16 => 4rem) and leave room for bottom nav (h-16) */}
+        <main className="pt-16 pb-16 min-h-[calc(100vh-4rem-4rem)]">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+
+            {/* public auth pages */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+            {/* protected area */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+            </Route>
+
+            <Route path="*" element={<h1 className="p-6 text-center">Page Not Found</h1>} />
+          </Routes>
+        </main>
+        <BottomNavigation />
+      </AuthProvider>
     </BrowserRouter>
-  );
+  )
 }
+

@@ -1,23 +1,15 @@
 // src/components/Chatbot/ChatbotSection.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChatMessage from "./ChatMessage";
 import logo from "../../assets/Perspectiv.svg";
+import send from "../../assets/Send.svg"
 
 export default function ChatbotSection({
-  messages: controlledMessages,
-  setMessages: setControlledMessages,
-  draft: controlledDraft,
-  setDraft: setControlledDraft,
-  onSubmit,                    // optional; parent can still hook submit
-  showInlineInput = true,
-  fadeInline = true,
-  className = "",
-  webhookUrl,                  // optional prop (overrides env)
+  webhookUrl,                  // n8n workflow webhook URL
   userId,                      // optional: pass your app's user ID if available
+  className = "",
 }) {
-  // -------------------------
   // Stable session_id per tab
-  // -------------------------
   const SESSION_KEY = "chatbot-session-id";
   const [sessionId] = useState(() => {
     const existing = sessionStorage.getItem(SESSION_KEY);
@@ -30,48 +22,23 @@ export default function ChatbotSection({
     return id;
   });
 
-  // ---------------------------------
-  // Controlled vs Uncontrolled wiring
-  // ---------------------------------
-  const isMessagesControlled =
-    typeof controlledMessages !== "undefined" &&
-    typeof setControlledMessages === "function";
-
-  const isDraftControlled =
-    typeof controlledDraft !== "undefined" &&
-    typeof setControlledDraft === "function";
-
-  // Uncontrolled defaults: seed the first bot bubble so UI looks identical on load
-  const [uncontrolledMessages, setUncontrolledMessages] = useState([
+  // Chat state
+  const [messages, setMessages] = useState([
     { id: 1, isBot: true, text: "Hi! How can I help you today?" },
   ]);
-  const [uncontrolledDraft, setUncontrolledDraft] = useState("");
+  const [draft, setDraft] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Effective state
-  const messages = isMessagesControlled ? controlledMessages : uncontrolledMessages;
-  const setMessages = isMessagesControlled ? setControlledMessages : setUncontrolledMessages;
-  const draft = isDraftControlled ? controlledDraft : uncontrolledDraft;
-  const setDraft = isDraftControlled ? setControlledDraft : setUncontrolledDraft;
-
-  // Refs / utilities
+  // Refs
   const endRef = useRef(null);
-  const didWelcome = useRef(false);
 
-  // Auto-scroll when messages change
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Stable log id if you're using it for aria labels
-  const logId = useMemo(
-    () => `chat-log-${Math.random().toString(36).slice(2)}`,
-    []
-  );
-
-  // ----------------------------
-  // Response extractor (n8n-safe)
-  // ----------------------------
-  function extractText(payload, fallback = "Sorry, I didn’t get a response.") {
+  // Extract text from n8n workflow response
+  function extractText(payload, fallback = "Sorry, I didn't get a response.") {
     const item = Array.isArray(payload) ? payload[0] : payload;
     return (
       item?.content ??
@@ -85,172 +52,137 @@ export default function ChatbotSection({
     );
   }
 
-  // ---------------------------------------
-  // Welcome webhook → replace first bot bubble
-  // ---------------------------------------
-  useEffect(() => {
-    if (isMessagesControlled) return;   // parent owns messages; don't auto-welcome
-    if (didWelcome.current) return;
-    didWelcome.current = true;
-
-    const WELCOME_URL = import.meta?.env?.VITE_N8N_WELCOME_WEBHOOK_URL || null;
-    if (!WELCOME_URL) return; // keep seeded greeting if no backend welcome
-
-    (async () => {
-      try {
-        const res = await fetch(WELCOME_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session_id: sessionId,
-            user_id: userId,
-          }),
-        });
-        if (!res.ok) throw new Error(`Welcome webhook error ${res.status}`);
-        const data = await res.json().catch(() => ({}));
-        const reply = extractText(data, "👋");
-
-        // Replace text of the FIRST bot message only — no new elements added
-        setMessages(prev => {
-          const idx = prev.findIndex(m => m.isBot);
-          if (idx === -1) return prev;
-          const next = prev.slice();
-          next[idx] = { ...next[idx], text: reply };
-          return next;
-        });
-      } catch (err) {
-        // Silently keep the seeded greeting to avoid any visual change
-        console.warn("Welcome webhook failed:", err);
-      }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // --------------------
-  // Default submit logic
-  // --------------------
-  const defaultSubmit = async () => {
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     const text = draft.trim();
-    if (!text) return;
+    if (!text || isLoading) return;
 
-    // Optimistic echo (your own message visible immediately)
+    // Add user message immediately
     const userMsg = { id: Date.now(), isBot: false, text };
     setMessages(prev => [...prev, userMsg]);
     setDraft("");
+    setIsLoading(true);
 
-    // Show typing placeholder bubble
+    // Show typing indicator
     const typingId = Date.now() + 1;
     setMessages(prev => [...prev, { id: typingId, isBot: true, text: "…" }]);
 
-    // Use prop URL if provided, else env var
-    const DECISION_URL =
-      webhookUrl || import.meta?.env?.VITE_N8N_DECISION_WEBHOOK_URL;
-
-    if (!DECISION_URL) {
-      // Fallback behavior (no backend): keep appearance identical
+    // Check if webhook URL is provided
+    if (!webhookUrl) {
+      // Fallback behavior when no webhook is configured
       setTimeout(() => {
         setMessages(prev => [
           ...prev.filter(m => m.id !== typingId),
-          { id: Date.now() + 2, isBot: true, text: "Got it! I'll think about that…" },
+          { id: Date.now() + 2, isBot: true, text: "I'm sorry, but I'm not connected to a backend service yet. Please configure the VITE_N8N_WEBHOOK_URL environment variable." },
         ]);
-      }, 300);
+      }, 1000);
+      setIsLoading(false);
       return;
     }
 
     try {
-      const res = await fetch(DECISION_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // New backend contract — include old keys for compatibility
-          session_id: sessionId,
-          user_id: userId,
-          chatInput: text,
-          message: text,
-          history: messages.map(m => ({
-            role: m.isBot ? "assistant" : "user",
-            content: m.text,
-          })),
-        }),
+      // Prepare the payload
+      const payload = {
+        session_id: sessionId,
+        user_id: userId,
+        chatInput: text,
+        message: text,
+        history: messages.map(m => ({
+          role: m.isBot ? "assistant" : "user",
+          content: m.text,
+        })),
+      };
+
+      // Log the payload for debugging
+      console.log("Sending to webhook:", {
+        url: webhookUrl,
+        payload: payload
       });
 
-      if (!res.ok) throw new Error(`Webhook error ${res.status}`);
+      // Call n8n workflow
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        // Get error details if possible
+        let errorDetails = "";
+        try {
+          const errorData = await res.text();
+          errorDetails = errorData ? ` - ${errorData}` : "";
+        } catch (e) {
+          // Ignore error parsing errors
+        }
+        
+        throw new Error(`Webhook error ${res.status}${errorDetails}`);
+      }
 
       const data = await res.json().catch(() => ({}));
       const reply = extractText(data);
 
+      // Replace typing indicator with actual response
       setMessages(prev => [
         ...prev.filter(m => m.id !== typingId),
-        { id: Date.now() + 3, isBot: true, text: reply },
+        { id: Date.now() + 2, isBot: true, text: reply },
       ]);
     } catch (err) {
       console.error("Chatbot webhook error:", err);
+      
+      // Show more helpful error message
+      let errorMessage = "Sorry, I encountered an error. Please try again.";
+      if (err.message.includes("500")) {
+        errorMessage = "Server error (500) - The backend workflow is having issues. Please check the n8n execution logs.";
+      } else if (err.message.includes("404")) {
+        errorMessage = "Webhook not found (404) - Please check the webhook URL configuration.";
+      } else if (err.message.includes("403")) {
+        errorMessage = "Access denied (403) - Please check the webhook permissions.";
+      }
+      
+      // Replace typing indicator with error message
       setMessages(prev => [
         ...prev.filter(m => m.id !== typingId),
-        { id: Date.now() + 4, isBot: true, text: "Error talking to server." },
+        { id: Date.now() + 3, isBot: true, text: errorMessage },
       ]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // ---------------------------------------------------------
-  // Submit handler: ALWAYS echo user's message before delegating
-  // ---------------------------------------------------------
-  function handleSubmit(e) {
-    e.preventDefault();
-    const text = draft.trim();
-    if (!text) return;
-
-    if (typeof onSubmit === "function") {
-      // Optimistic echo so the user's message is immediately visible
-      const userMsg = { id: Date.now(), isBot: false, text };
-      setMessages(prev => [...prev, userMsg]);
-      setDraft("");
-
-      // Delegate to parent (it can handle sending / typing indicator as it wishes)
-      // Provide text + sessionId if parent wants them.
-      onSubmit(e, { text, sessionId });
-      return;
-    }
-
-    // Uncontrolled (or no parent handler): do the full default flow
-    defaultSubmit();
-  }
-
-  // ----------------
-  // Render (no CSS changes)
-  // ----------------
   return (
     <section className={className}>
       {/* Chat Log */}
-      <div role="log" id={logId} aria-live="polite" className="flex flex-col gap-4 h-110 px-4 overflow-y-auto">
+      <div role="log" aria-live="polite" className="flex flex-col gap-4 h-90 px-4 overflow-y-auto">
         {messages.map((m) => (
           <ChatMessage key={m.id} isBot={m.isBot} text={m.text} logo={logo} />
         ))}
         <div ref={endRef} />
       </div>
 
-      {/* Inline input stays fully visible; fade behavior preserved via your classes */}
-      {showInlineInput && (
-        <div
-          className={
-            fadeInline
-              ? "transition-opacity duration-300 opacity-100"
-              : ""
-          }
-        >
-          <form onSubmit={handleSubmit} className="flex gap-2 px-4">
-            <input
-              type="text"
-              className="flex-1 rounded-full border-2 border-[#33ccff] py-2 px-4 text-sm text-white placeholder:text-white/50 outline-none bg-black/30 backdrop-blur-md"
-              placeholder="Type a message…"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              aria-label="Message"
-            />
-            <button type="submit" className="sr-only">Send</button>
-          </form>
+      {/* Input form */}
+      <form onSubmit={handleSubmit} className="flex gap-2 px-4">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            className="w-full rounded-full border-2 border-[#33ccff] py-2 pr-12 pl-4 text-sm text-white placeholder:text-white/50 outline-none bg-black/30 backdrop-blur-md"
+            placeholder="Type a message…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            disabled={isLoading}
+            aria-label="Message"
+          />
+                     <button 
+             type="submit" 
+             disabled={isLoading || !draft.trim()}
+             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full disabled:cursor-not-allowed"
+             aria-label="Send message"
+           >
+             <img src={send} alt="Send" className="w-5 h-5" />
+           </button>
         </div>
-      )}
+      </form>
     </section>
   );
 }
