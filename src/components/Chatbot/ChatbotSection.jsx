@@ -1,5 +1,5 @@
 // src/components/Chatbot/ChatbotSection.jsx
-import { useEffect, useRef, useState } from "react";
+import { endRef, useRef, useState } from "react";
 import ChatMessage from "./ChatMessage";
 import logo from "../../assets/Perspectiv.svg";
 import send from "../../assets/Send.svg"
@@ -30,12 +30,7 @@ export default function ChatbotSection({
   const [isLoading, setIsLoading] = useState(false);
 
   // Refs
-  const endRef = useRef(null);
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const logRef = useRef(null);
 
   // Extract text from n8n workflow response
   function extractText(payload, fallback = "Sorry, I didn't get a response.") {
@@ -116,7 +111,7 @@ export default function ChatbotSection({
         } catch (e) {
           // Ignore error parsing errors
         }
-        
+
         throw new Error(`Webhook error ${res.status}${errorDetails}`);
       }
 
@@ -130,7 +125,7 @@ export default function ChatbotSection({
       ]);
     } catch (err) {
       console.error("Chatbot webhook error:", err);
-      
+
       // Show more helpful error message
       let errorMessage = "Sorry, I encountered an error. Please try again.";
       if (err.message.includes("500")) {
@@ -140,7 +135,7 @@ export default function ChatbotSection({
       } else if (err.message.includes("403")) {
         errorMessage = "Access denied (403) - Please check the webhook permissions.";
       }
-      
+
       // Replace typing indicator with error message
       setMessages(prev => [
         ...prev.filter(m => m.id !== typingId),
@@ -154,10 +149,15 @@ export default function ChatbotSection({
   return (
     <section className={className}>
       {/* Chat Log */}
-      <div role="log" aria-live="polite" className="flex flex-col gap-4 h-90 px-4 overflow-y-auto">
-        {messages.map((m) => (
-          <ChatMessage key={m.id} isBot={m.isBot} text={m.text} logo={logo} />
-        ))}
+      <div
+        role="log"
+        aria-live="polite"
+        ref={logRef}
+        className="flex flex-col gap-4 h-90 px-4 overflow-y-auto"
+        style={{ overflowAnchor: "none" }}
+      >        {messages.map((m) => (
+        <ChatMessage key={m.id} isBot={m.isBot} text={m.text} logo={logo} />
+      ))}
         <div ref={endRef} />
       </div>
 
@@ -173,14 +173,14 @@ export default function ChatbotSection({
             disabled={isLoading}
             aria-label="Message"
           />
-                     <button 
-             type="submit" 
-             disabled={isLoading || !draft.trim()}
-             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full disabled:cursor-not-allowed"
-             aria-label="Send message"
-           >
-             <img src={send} alt="Send" className="w-5 h-5" />
-           </button>
+          <button
+            type="submit"
+            disabled={isLoading || !draft.trim()}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full disabled:cursor-not-allowed"
+            aria-label="Send message"
+          >
+            <img src={send} alt="Send" className="w-5 h-5" />
+          </button>
         </div>
       </form>
     </section>

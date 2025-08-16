@@ -101,7 +101,7 @@ export default function Header() {
             </div>
 
             {/* Right: show the two icons on mobile header too */}
-            <div className="md:hidden flex items-center gap-2">
+            <div className="md:hidden z-10 flex items-center gap-2">
               <button
                 type="button"
                 className="p-2 rounded-full hover:bg-white/10 transition"
@@ -126,7 +126,7 @@ export default function Header() {
       {/* Mobile Sidebar Overlay */}
       {isMenuOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-xs"
+          className="md:hidden fixed inset-0 z-60 bg-black/50 backdrop-blur-xs"
           onClick={() => setIsMenuOpen(false)}
         />
       )}
