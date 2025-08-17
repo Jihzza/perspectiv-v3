@@ -4,9 +4,12 @@ import HomePage from './pages/HomePage'
 import DashboardPage from './pages/DashboardPage'
 import SettingsPage from './pages/SettingsPage'
 import ProfilePage from './pages/ProfilePage'
+import EditProfilePage from './pages/EditProfilePage'
 import NotificationsPage from "./pages/NotificationsPage";
 import Header from './components/Layout/Header'
 import BottomNavigation from './components/Layout/BottomNavigation'
+import ChatHistoryPage from './pages/ChatHistoryPage'
+import ChatConversationPage from './pages/ChatConversationPage'
 
 import AuthProvider from './auth/AuthContext'
 import ProtectedRoute from './auth/ProtectedRoute'
@@ -24,7 +27,7 @@ export default function App() {
       <AuthProvider>
         <Header />
         {/* Offset all content by the fixed header (h-16 => 4rem) and leave room for bottom nav (h-16) */}
-        <main className="pt-16 pb-16 min-h-[calc(100vh-4rem-4rem)]">
+        <main className="py-16 min-h-[calc(100vh-4rem-4rem)]">
           <Routes>
             <Route path="/" element={<HomePage />} />
 
@@ -40,8 +43,10 @@ export default function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profile/edit" element={<EditProfilePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
-            </Route>
+              <Route path="/profile/chat-history" element={<ChatHistoryPage />} />
+              <Route path="/profile/chat-history/:sessionId" element={<ChatConversationPage />} />            </Route>
 
             <Route path="*" element={<h1 className="p-6 text-center">Page Not Found</h1>} />
           </Routes>

@@ -53,7 +53,7 @@ export default function DashboardKPI({ contextId = "default", className = "" }) 
 
 function KPICard({ title, value, color }) {
   return (
-    <div className="bg-[#33ccff]/15 backdrop-blur-sm rounded-lg p-6 text-center border border-white/20">
+    <div className="bg-white/5 border border-white/10 backdrop-blur-sm rounded-lg p-6 text-center">
       <div className={`text-3xl font-bold ${color} mb-2`}>{value}</div>
       <div className="text-sm text-gray-300">{title}</div>
     </div>

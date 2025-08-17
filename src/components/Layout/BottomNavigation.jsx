@@ -1,4 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import OctagonAvatar from "./OctagonAvatar";
 import logo from "../../assets/Perspectiv.svg";
 import homeIcon from "../../assets/Home.svg";
 import dashboardIcon from "../../assets/Dashboard.svg";
@@ -7,6 +10,61 @@ import profileIcon from "../../assets/Profile Branco.svg";
 
 export default function BottomNavigation() {
   const location = useLocation();
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+
+  // Fetch user and profile data
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!mounted) return;
+      const u = data?.user ?? null;
+      setUser(u);
+
+      // Fetch profile data if user exists
+      if (u?.id) {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", u.id)
+          .single();
+        if (mounted) setProfile(p || null);
+      }
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+
+      // Refresh profile when auth changes
+      if (u?.id) {
+        supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", u.id)
+          .single()
+          .then(({ data: p }) => setProfile(p || null));
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  // Get avatar URL from profile or auth metadata
+  const avatarUrl = useMemo(() => {
+    if (profile?.avatar_url) return profile.avatar_url;
+    if (user?.user_metadata?.avatar_url) return user.user_metadata.avatar_url;
+    const google = (user?.identities || []).find((i) => i.provider === "google");
+    const pic = google?.identity_data?.avatar_url || google?.identity_data?.picture;
+    return pic || null;
+  }, [profile, user]);
 
   const items = [
     { path: "/",           icon: homeIcon,      label: "Home" },
@@ -14,7 +72,7 @@ export default function BottomNavigation() {
     // Center logo (acts like a nav item, but never shows a label)
     { path: "/",           icon: logo,          label: "Logo", isLogo: true },
     { path: "/settings",   icon: settingsIcon,  label: "Settings" },
-    { path: "/profile",    icon: profileIcon,   label: "Profile" }
+    { path: "/profile",    icon: profileIcon,   label: "Profile", isProfile: true }
   ];
 
   const isActive = (path, isLogo) => {
@@ -37,11 +95,23 @@ export default function BottomNavigation() {
               className="flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 text-white"
             >
               <div className="flex flex-col items-center">
-                <img
-                  src={item.icon}
-                  alt={item.label}
-                  className="w-6 h-6 mb-1"
-                />
+                {item.isProfile && avatarUrl ? (
+                  <OctagonAvatar
+                    src={avatarUrl}
+                    alt="Profile"
+                    size={24}
+                    ringWidth={1}
+                    gap={2}
+                    ringColor="#24C8FF"
+                    className="mb-1"
+                  />
+                ) : (
+                  <img
+                    src={item.icon}
+                    alt={item.label}
+                    className="w-6 h-6 mb-1"
+                  />
+                )}
                 {active && <span className="text-xs font-medium">{item.label}</span>}
               </div>
             </Link>

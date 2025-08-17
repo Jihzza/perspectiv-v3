@@ -13,18 +13,27 @@ export default function HomePage() {
   const [showDock, setShowDock] = useState(false);
   const chatbotRef = useRef(null);
 
-  const [userId, setUserId] = useState(null);
+  const [userId, setUserId] = useState(undefined); // undefined until we check
 
   useEffect(() => {
     window.scrollTo(0, 0);
     // get current user now
+    // 1) get current user now (network-validates the session)
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
-    // keep in sync with auth changes
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+    // 2) keep in sync with auth changes (documented API)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evt, session) => {
       setUserId(session?.user?.id ?? null);
     });
-    return () => sub?.subscription?.unsubscribe?.();
+    return () => subscription?.unsubscribe();
   }, []);
+
+  // Mirror userId into localStorage for immediate availability
+  useEffect(() => {
+    try {
+      if (userId) localStorage.setItem("user_id", userId);
+      else localStorage.removeItem("user_id");
+    } catch { }
+  }, [userId]);
 
   // Observe the chatbot wrapper
   const chatVisible = useOnScreen(chatbotRef, { threshold: 0.15 });
@@ -63,6 +72,7 @@ export default function HomePage() {
       >
         <ChatbotSection
           webhookUrl={import.meta.env.VITE_N8N_DECISION_WEBHOOK_URL}
+          welcomeWebhookUrl={import.meta.env.VITE_N8N_WELCOME_WEBHOOK_URL}
           userId={userId}
         />
       </div>

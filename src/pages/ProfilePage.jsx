@@ -2,35 +2,53 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient"; // adjust path if needed
+import OctagonAvatar from "../components/Layout/OctagonAvatar";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [identities, setIdentities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [nameDraft, setNameDraft] = useState("");
+  const [profile, setProfile] = useState(null);
 
+  // ---- Load Auth User ----
   useEffect(() => {
     let mounted = true;
 
-    // Load the freshest user (validates token on the server)
-    supabase.auth.getUser().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
       if (!mounted) return;
-      setUser(data?.user ?? null);
-      setIdentities(data?.user?.identities ?? []);
+      const u = data?.user ?? null;
+      setUser(u);
+      setIdentities(u?.identities ?? []);
       setLoading(false);
-      if (data?.user) {
-        const md = data.user.user_metadata || {};
-        setNameDraft(md.full_name || md.name || md.user_name || "");
-      }
-    });
 
-    // Keep UI in sync with auth changes
+      // fetch profile row (simple, single query)
+      if (u?.id) {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("full_name, username, avatar_url, updated_at")
+          .eq("id", u.id)
+          .single();
+        if (mounted) setProfile(p || null);
+      }
+    })();
+
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       const u = session?.user ?? null;
       setUser(u);
       setIdentities(u?.identities ?? []);
-      const md = u?.user_metadata || {};
-      setNameDraft(md.full_name || md.name || md.user_name || "");
+
+      // refresh profile when auth changes
+      if (u?.id) {
+        supabase
+          .from("profiles")
+          .select("full_name, username, avatar_url, updated_at")
+          .eq("id", u.id)
+          .single()
+          .then(({ data: p }) => setProfile(p || null));
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => {
@@ -39,57 +57,58 @@ export default function ProfilePage() {
     };
   }, []);
 
-  const displayName = useMemo(() => {
-    const md = user?.user_metadata || {};
-    return md.full_name || md.name || md.user_name || user?.email?.split("@")[0] || "User";
-  }, [user]);
 
-  const providers = useMemo(() => {
-    const ids = identities || [];
-    return ids.length ? ids.map((i) => i.provider) : ["email"];
-  }, [identities]);
+  // ---- Derived fields (prefer profiles table, then auth metadata, then fallbacks) ----
+  const authMeta = user?.user_metadata || {};
+
+  const displayName = useMemo(() => {
+    return (
+      profile?.full_name ||
+      authMeta.full_name ||
+      authMeta.name ||
+      authMeta.user_name ||
+      user?.email?.split("@")[0] ||
+      "User"
+    );
+  }, [profile, authMeta, user]);
+
+  const username = useMemo(() => {
+    return (
+      profile?.username ||
+      authMeta.preferred_username ||
+      authMeta.user_name ||
+      user?.email?.split("@")[0] ||
+      ""
+    );
+  }, [profile, authMeta, user]);
 
   const avatarUrl = useMemo(() => {
-    const md = user?.user_metadata || {};
-    if (md.avatar_url) return md.avatar_url; // many OAuth providers put it here
-    // try identities → google identity_data.picture / avatar_url
+    if (profile?.avatar_url) return profile.avatar_url;
+    if (authMeta.avatar_url) return authMeta.avatar_url;
     const google = (identities || []).find((i) => i.provider === "google");
     const pic = google?.identity_data?.avatar_url || google?.identity_data?.picture;
     return pic || null;
-  }, [user, identities]);
+  }, [profile, authMeta, identities]);
 
   const initials = useMemo(() => {
     const parts = (displayName || "").trim().split(/\s+/);
-    return parts.slice(0, 2).map(p => p[0]?.toUpperCase() || "").join("") || "U";
+    return (
+      parts
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() || "")
+        .join("") || "U"
+    );
   }, [displayName]);
-
-  const createdAt = user?.created_at ? new Date(user.created_at) : null;
-
-  async function saveName(e) {
-    e.preventDefault();
-    if (!user) return;
-    // Save to user_metadata for a consistent app-wide display name
-    const { error } = await supabase.auth.updateUser({ data: { full_name: nameDraft } });
-    if (error) {
-      console.error(error.message);
-      return;
-    }
-    // refresh local copy
-    const { data } = await supabase.auth.getUser();
-    setUser(data?.user ?? null);
-  }
 
   if (loading) {
     return (
-      <div className="h-screen text-white px-4">
-        <p className="opacity-80">Loading profile…</p>
-      </div>
+      <div className="h-screen grid place-items-center text-white/80">Loading profile…</div>
     );
   }
 
   if (!user) {
     return (
-      <div className="h-full text-white grid place-items-center">
+      <div className="h-screen grid place-items-center text-white">
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-center">
           <p className="mb-4">You’re not signed in.</p>
           <Link to="/login" className="inline-block bg-white text-black px-4 py-2 rounded-lg">Log in</Link>
@@ -99,65 +118,85 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-b from-[#1B2537] to-[#000000] text-white py-8">
-      <div className="h-screen mx-auto px-4 py-8">
-
-        <div className="max-w-2xl space-y-6">
-          {/* Card: hero row with avatar + basics */}
-          <div className="bg-[#33ccff]/15 backdrop-blur-md rounded-xl p-6">
-            <div className="flex items-center gap-5 mb-6">
+    <div className="min-h-screen text-white">
+      <div className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+        {/* Header Card */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="flex flex-col items-center gap-6">
+            {/* Avatar Section */}
+            <div className="flex-shrink-0">
               {avatarUrl ? (
-                <img
+                <OctagonAvatar
                   src={avatarUrl}
                   alt={displayName}
-                  className="w-20 h-20 rounded-full object-cover ring-2 ring-white/20"
-                  referrerPolicy="no-referrer"
+                  size={112}
+                  ringWidth={3}
+                  gap={6}
+                  ringColor="#24C8FF"
+                  className="shrink-0"
                 />
               ) : (
-                <div className="h-full bg-gradient-to-b from-[#1B2537] to-[#000000] text-white py-8">
+                <div className="w-24 h-24 rounded-full ring-3 ring-white/20 bg-white/10 grid place-items-center text-2xl font-semibold shadow-lg">
                   {initials}
                 </div>
               )}
+            </div>
 
-              <div>
-                <h3 className="text-2xl font-semibold leading-tight">{displayName}</h3>
-                <p className="text-gray-300">{user.email}</p>                
+            {/* Profile Info Section */}
+            <div className="flex w-full text-center justify-center min-w-0">
+              <div className="space-y-1">
+                <div className="text-3xl font-bold text-white">{displayName}</div>
+                {username && (
+                  <div className="text-lg text-white/70 font-medium">@{username}</div>
+                )}
+                <div className="text-sm text-white/60">
+                  Member since {new Date(user?.created_at || Date.now()).toLocaleDateString()}
+                </div>
               </div>
             </div>
 
-            {/* Simple “edit name” form (optional) */}
-            <form onSubmit={saveName} className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-              <input
-                className="ui-input"
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                placeholder="Your display name"
-              />
-              <button
-                type="submit"
-                className="bg-white text-black px-4 py-2 rounded-lg font-medium"
+            {/* Edit Button Section */}
+            <div className="flex-shrink-0 self-center">
+              <Link
+                to="/profile/edit"
+                className="flex items-center justify-center text-center gap-2 rounded-xl px-4 py-3 border border-white/20 hover:border-white/40 transition-all duration-200 bg-white/10 hover:bg-white/20 hover:shadow-lg hover:shadow-white/10"
               >
-                Save
-              </button>
-            </form>
+                <span className="font-medium">Edit Profile</span>
+              </Link>
+            </div>
           </div>
+        </div>
 
-          {/* Minimal stats / placeholder card (keep it simple & clean) */}
-          <div className="bg-[#33ccff]/15 backdrop-blur-md rounded-xl p-6">
-            <h3 className="text-xl font-semibold mb-3">Overview</h3>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-blue-300">—</div>
-                <div className="text-sm text-gray-300">Posts</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-green-300">—</div>
-                <div className="text-sm text-gray-300">Followers</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-purple-300">—</div>
-                <div className="text-sm text-gray-300">Following</div>
-              </div>
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Chatbot</h3>
+            <Link
+              to="/profile/chat-history"
+              className="text-sm font-medium border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/10"
+            >
+              View History
+            </Link>
+          </div>
+        </div>
+
+
+        {/* Overview Card (simple placeholders) */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold">Overview</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <div className="text-2xl font-bold">—</div>
+              <div className="text-sm text-white/70">Posts</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">—</div>
+              <div className="text-sm text-white/70">Followers</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">—</div>
+              <div className="text-sm text-white/70">Following</div>
             </div>
           </div>
         </div>

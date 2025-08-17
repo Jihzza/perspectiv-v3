@@ -11,7 +11,7 @@ export default function DashboardPage() {
           <DashboardKPI contextId="default" />
 
           {/* Additional Dashboard Content */}
-          <div className="bg-[#33ccff]/15 backdrop-blur-md rounded-xl p-6 border border-white/10">
+          <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-xl p-6">
             <h3 className="text-xl font-semibold mb-4">Recent Activity</h3>
             <div className="text-gray-300">
               <p>No recent activity to display.</p>

@@ -1,36 +1,38 @@
 // src/components/Chatbot/ChatbotSection.jsx
-import { endRef, useRef, useState } from "react";
+import { useEffect, endRef, useRef, useState } from "react";
 import ChatMessage from "./ChatMessage";
 import logo from "../../assets/Perspectiv.svg";
 import send from "../../assets/Send.svg"
+export const CHAT_SESSION_KEY = "chatbot-session-id";
 
 export default function ChatbotSection({
-  webhookUrl,                  // n8n workflow webhook URL
-  userId,                      // optional: pass your app's user ID if available
+  webhookUrl,
+  userId,
+  welcomeWebhookUrl = import.meta.env.VITE_N8N_WELCOME_WEBHOOK_URL,
   className = "",
 }) {
   // Stable session_id per tab
-  const SESSION_KEY = "chatbot-session-id";
+  const SESSION_KEY = CHAT_SESSION_KEY;
+  const endRef = useRef(null);
+
   const [sessionId] = useState(() => {
     const existing = sessionStorage.getItem(SESSION_KEY);
     if (existing) return existing;
-    const id =
-      (globalThis.crypto && typeof crypto.randomUUID === "function")
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2);
+    const id = (globalThis.crypto && typeof crypto.randomUUID === "function")
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
     sessionStorage.setItem(SESSION_KEY, id);
     return id;
   });
 
   // Chat state
-  const [messages, setMessages] = useState([
-    { id: 1, isBot: true, text: "Hi! How can I help you today?" },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Refs
   const logRef = useRef(null);
+  const hasFetchedWelcome = useRef(false);
 
   // Extract text from n8n workflow response
   function extractText(payload, fallback = "Sorry, I didn't get a response.") {
@@ -46,6 +48,51 @@ export default function ChatbotSection({
       fallback
     );
   }
+
+  useEffect(() => {
+    if (userId === undefined || hasFetchedWelcome.current) return;
+    hasFetchedWelcome.current = true;
+
+    // If no welcome webhook, fall back to a static message
+    if (!welcomeWebhookUrl) {
+      setMessages([{ id: Date.now(), isBot: true, text: "Hi! How can I help you today?" }]);
+      return;
+    }
+
+    // show typing bubble
+    const typingId = Date.now();
+    setMessages(prev => [...prev, { id: typingId, isBot: true, text: "…" }]);
+
+    (async () => {
+      try {
+        const res = await fetch(welcomeWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: sessionId,
+            user_id: userId ?? localStorage.getItem("user_id") ?? null,
+            id: userId ?? localStorage.getItem("user_id") ?? null,
+          }),
+        });
+        if (!res.ok) throw new Error(`Webhook error ${res.status}`);
+        const data = await res.json().catch(() => ({}));
+        const reply = extractText(data, "👋 Welcome!");
+
+        setMessages(prev => [
+          ...prev.filter(m => m.id !== typingId),
+          { id: Date.now() + 1, isBot: true, text: reply },
+        ]);
+      } catch (err) {
+        console.error("Welcome webhook error:", err);
+        setMessages(prev => [
+          ...prev.filter(m => m.id !== typingId),
+          { id: Date.now() + 2, isBot: true, text: "Sorry, I couldn’t fetch the welcome message." },
+        ]);
+      }
+    })();
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, sessionId, welcomeWebhookUrl]);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -77,10 +124,10 @@ export default function ChatbotSection({
     }
 
     try {
-      // Prepare the payload
+      const uid = userId ?? localStorage.getItem("user_id") ?? null;
       const payload = {
         session_id: sessionId,
-        user_id: userId,
+        user_id: uid,
         chatInput: text,
         message: text,
         history: messages.map(m => ({
@@ -145,6 +192,10 @@ export default function ChatbotSection({
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages]);
 
   return (
     <section className={className}>
