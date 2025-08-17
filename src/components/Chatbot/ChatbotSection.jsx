@@ -3,7 +3,6 @@ import { useEffect, endRef, useRef, useState } from "react";
 import ChatMessage from "./ChatMessage";
 import logo from "../../assets/Perspectiv.svg";
 import send from "../../assets/Send.svg"
-export const CHAT_SESSION_KEY = "chatbot-session-id";
 
 export default function ChatbotSection({
   webhookUrl,
@@ -11,19 +10,22 @@ export default function ChatbotSection({
   welcomeWebhookUrl = import.meta.env.VITE_N8N_WELCOME_WEBHOOK_URL,
   className = "",
 }) {
-  // Stable session_id per tab
-  const SESSION_KEY = CHAT_SESSION_KEY;
-  const endRef = useRef(null);
 
-  const [sessionId] = useState(() => {
-    const existing = sessionStorage.getItem(SESSION_KEY);
-    if (existing) return existing;
-    const id = (globalThis.crypto && typeof crypto.randomUUID === "function")
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
-    sessionStorage.setItem(SESSION_KEY, id);
-    return id;
-  });
+  const endRef = useRef(null);
+  // Fresh session per mount
+  const genSessionId = () => {
+    try {
+      if (crypto?.randomUUID) return crypto.randomUUID();
+    } catch { }
+    // Fallback if randomUUID isn’t available
+    const rnd = (crypto?.getRandomValues)
+      ? crypto.getRandomValues(new Uint8Array(16))
+      : Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+    return `${Date.now()}-${Array.from(rnd).map(x => x.toString(16).padStart(2, "0")).join("")}`;
+  };
+  const sessionIdRef = useRef(null);
+  if (!sessionIdRef.current) sessionIdRef.current = genSessionId();
+  const sessionId = sessionIdRef.current;
 
   // Chat state
   const [messages, setMessages] = useState([]);
