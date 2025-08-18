@@ -1,6 +1,6 @@
 export default function SettingsPage() {
   return (
-    <div className="min-h-screen text-white">
+    <div className="text-white grid place-items-start h-[calc(100dvh-theme(spacing.16)-theme(spacing.16))]">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-8">Settings</h1>
         <div className="space-y-4">
@@ -9,8 +9,8 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Email</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   className="ui-input"
                   placeholder="your@email.com"
                 />
@@ -30,7 +30,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-[#33ccff]/15 backdrop-blur-md rounded-xl p-6">
             <h3 className="text-xl font-semibold mb-4">Preferences</h3>
             <div className="space-y-4">

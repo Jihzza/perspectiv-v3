@@ -1,4 +1,4 @@
-import DashboardKPI from "./DashboardKPISection";
+import DashboardKPI from "./DashboardKPI";
 
 export default function DashboardSection() {
   return (

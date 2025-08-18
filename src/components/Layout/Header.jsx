@@ -145,7 +145,7 @@ export default function Header() {
               className="text-gray-300 hover:text-white transition-colors duration-200"
               aria-label="Close menu"
             >
-              <FaTimes size={24} />
+              <FaTimes size={20} />
             </button>
           </div>
 

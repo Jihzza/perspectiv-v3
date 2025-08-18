@@ -1,22 +1,16 @@
+// src/pages/DashboardPage.jsx
 import DashboardKPI from "../components/Dashboard/DashboardKPI";
+import RecentActivity from "../components/Dashboard/RecentActivity";
 
 export default function DashboardPage() {
   return (
-    <div className="h-full text-white">
+    <div className="text-white grid place-items-start h-[calc(100dvh-theme(spacing.16)-theme(spacing.16))]">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-8">Dashboard</h1>
 
-        <div className="max-w-4xl space-y-6">
-          {/* Shared KPI widget */}
+        <div className="max-w-5xl space-y-6">
           <DashboardKPI contextId="default" />
-
-          {/* Additional Dashboard Content */}
-          <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-xl p-6">
-            <h3 className="text-xl font-semibold mb-4">Recent Activity</h3>
-            <div className="text-gray-300">
-              <p>No recent activity to display.</p>
-            </div>
-          </div>
+          <RecentActivity items={[]} />
         </div>
       </div>
     </div>
