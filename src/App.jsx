@@ -27,7 +27,7 @@ export default function App() {
       <AuthProvider>
         <Header />
         {/* Offset all content by the fixed header (h-16 => 4rem) and leave room for bottom nav (h-16) */}
-        <main className="py-16 min-h-[calc(100vh-4rem-4rem)]">
+        <main className="py-16 min-h-[calc(100vh-4rem-4rem)] bg-gradient-to-b from-[#1B2537] to-black">
           <Routes>
             <Route path="/" element={<HomePage />} />
 
