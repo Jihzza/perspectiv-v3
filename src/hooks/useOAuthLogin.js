@@ -4,11 +4,13 @@ import { supabase } from "../lib/supabaseClient";
 export function useOAuthLogin() {
   const [errorMsg, setErrorMsg] = useState(null);
 
-  async function signInWithGoogle() {
+  async function signInWithGoogle(next = window.location.pathname + window.location.search) {
     setErrorMsg(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
     });
     if (error) setErrorMsg(error.message);
     // browser will redirect automatically on success
