@@ -10,6 +10,7 @@ const SESSION_KEY = "chatbot-session-id"; // must match ChatbotSection
 
 export default function ChatConversationPage({ webhookUrl }) {
   const { sessionId } = useParams();
+  const initialHydrateAt = useRef(Date.now());
 
   const [user, setUser] = useState(null);
   const [messages, setMessages] = useState([]); // { id, role, content, created_at }
@@ -119,15 +120,30 @@ export default function ChatConversationPage({ webhookUrl }) {
         history: messages.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
       };
 
+      // Send as form-encoded to avoid CORS preflight (OPTIONS).
+      // All fields the workflow expects stay the same keys as before.
+      const form = new URLSearchParams();
+      form.set("session_id", sessionId ?? "");
+      form.set("user_id", user?.id ?? "");
+      form.set("chatInput", text);
+      form.set("message", text);
+      // History is an array -> stringify it
+      form.set(
+        "history",
+        JSON.stringify(messages.map(m => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content
+        })))
+      );
+
       const res = await fetch(resolvedWebhook, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: form,            // no headers -> browser sets x-www-form-urlencoded
       });
 
       if (!res.ok) {
         let details = "";
-        try { details = await res.text(); } catch {}
+        try { details = await res.text(); } catch { }
         throw new Error(`Webhook error ${res.status}${details ? ` - ${details}` : ""}`);
       }
 
@@ -166,9 +182,20 @@ export default function ChatConversationPage({ webhookUrl }) {
             {loading && messages.length === 0 ? (
               <div className="text-white/70">Loading conversation…</div>
             ) : (
-              messages.map((m) => (
-                <ChatMessage key={m.id} isBot={m.role === "assistant"} text={m.content} logo={logo} />
-              ))
+              messages.map((m) => {
+                const isBot = m.role === "assistant";
+                const created = new Date(m.created_at).getTime();
+                const animate = isBot && created > initialHydrateAt.current;
+                return (
+                  <ChatMessage
+                    key={m.id}
+                    isBot={isBot}
+                    text={m.content}
+                    logo={logo}
+                    animate={animate}
+                  />
+                );
+              })
             )}
             <div ref={endRef} />
           </div>

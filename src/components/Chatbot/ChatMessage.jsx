@@ -1,13 +1,13 @@
 // src/components/Chatbot/ChatMessage.jsx
 import { useEffect, useRef, useState } from "react";
 
-export default function ChatMessage({ isBot, text, logo, onTypingStart, onTypingEnd }) {
-  const [shown, setShown] = useState(isBot ? "" : text);
+export default function ChatMessage({ isBot, text, logo, onTypingStart, onTypingEnd, animate = true }) {
+  const [shown, setShown] = useState(isBot && animate ? "" : text);
   const timerRef = useRef(null);
 
   useEffect(() => {
     // Only animate bot messages
-    if (!isBot) {
+    if (!isBot || !animate) {
       setShown(text);
       return;
     }
@@ -40,15 +40,14 @@ export default function ChatMessage({ isBot, text, logo, onTypingStart, onTyping
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isBot, text, onTypingStart, onTypingEnd]);
+  }, [isBot, text, animate]); // run when any of these change
 
   return (
     <div className={`flex items-start gap-1 ${isBot ? "flex-row" : "flex-row-reverse"}`}>
       {isBot ? <img src={logo} alt="" className="h-8 w-8 shrink-0 rounded-full" /> : null}
       <div
-        className={`py-2 px-2 rounded-xl rounded-br-sm max-w-xs text-sm leading-relaxed ${
-          isBot ? "text-white" : "bg-[#33ccff]/15 px-4 backdrop-blur-md text-white ml-auto"
-        }`}
+        className={`py-2 px-2 rounded-xl rounded-br-sm max-w-xs text-sm leading-relaxed ${isBot ? "text-white" : "bg-[#33ccff]/15 px-4 backdrop-blur-md text-white ml-auto"
+          }`}
         // Announce the full message once to screen readers; hide the animated characters from AT
         aria-label={text}
       >
