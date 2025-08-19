@@ -77,12 +77,12 @@ export default function BottomNavigation() {
   }, [profile, user]);
 
   const items = [
-    { path: "/",           icon: homeIcon,      label: "Home" },
-    { path: "/dashboard",  icon: dashboardIcon, label: "Dashboard" },
+    { path: "/", icon: homeIcon, label: "Home" },
+    { path: "/dashboard", icon: dashboardIcon, label: "Dashboard" },
     // Center logo (acts like a nav item, but never shows a label)
-    { path: "/chat",       icon: logo,          label: "Logo", isLogo: true },
-    { path: "/settings",   icon: settingsIcon,  label: "Settings" },
-    { path: "/profile",    icon: profileIcon,   label: "Profile", isProfile: true }
+    { path: "/chat", icon: logo, label: "Logo", isLogo: true },
+    { path: "/settings", icon: settingsIcon, label: "Settings" },
+    { path: "/profile", icon: profileIcon, label: "Profile", isProfile: true }
   ];
 
   const isActive = (path, isLogo) => {
@@ -98,9 +98,12 @@ export default function BottomNavigation() {
 
     try {
       // Source: full viewport. Snapshot body (or a main container if you prefer).
-      const sourceNode = document.body;
-      const imgSrc = await toPng(sourceNode, { pixelRatio: 1, cacheBust: true, backgroundColor: null }); // :contentReference[oaicite:2]{index=2}
-
+      const sourceNode = document.getElementById('root'); // smaller capture area
+      const imgSrc = await Promise.race([
+        toJpeg(sourceNode, { pixelRatio: 1, quality: 0.7, cacheBust: false }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('capture-timeout')), 180))
+      ]);
+      
       const fromRect = {
         left: 0,
         top: 0,
