@@ -16,7 +16,7 @@ export default function BottomNavigation() {
   const [profile, setProfile] = useState(null);
   const [selected, setSelected] = useState(null);
 
-  // Fetch user + profile (same behavior, no styling changes)
+  // Fetch user + profile (unchanged)
   useEffect(() => {
     let mounted = true;
 
@@ -58,7 +58,7 @@ export default function BottomNavigation() {
     };
   }, []);
 
-  // Keep same avatar resolution logic
+  // Avatar resolution (unchanged)
   const avatarUrl = useMemo(() => {
     if (profile?.avatar_url) return profile.avatar_url;
     if (user?.user_metadata?.avatar_url) return user.user_metadata.avatar_url;
@@ -70,39 +70,54 @@ export default function BottomNavigation() {
   const items = [
     { path: "/", icon: homeIcon, label: "Home" },
     { path: "/dashboard", icon: dashboardIcon, label: "Dashboard" },
-    { path: "/chat", icon: logo, label: "Logo", isLogo: true },
+    { path: "/chat", icon: logo, label: "Chat", isLogo: true }, // center logo -> Chat
     { path: "/settings", icon: settingsIcon, label: "Settings" },
     { path: "/profile", icon: profileIcon, label: "Profile", isProfile: true },
   ];
 
+  // Active (for ARIA/styling), logo intentionally not treated as "active"
   const isActive = (path, isLogo) => {
     if (isLogo) return false;
     if (path === "/") return location.pathname === "/";
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
 
+  // Keep one label visible even if redirects change the URL.
+  // Also select the item that matches the current URL (including /chat for the logo).
   useEffect(() => {
-    const activeItem = items.find((it) => isActive(it.path, it.isLogo));
+    const pathMatches = (p) =>
+      location.pathname === p || location.pathname.startsWith(p + "/");
+    const activeItem = items.find((it) => pathMatches(it.path));
     if (activeItem) setSelected(activeItem.path);
-  }, [location.pathname]); // keep items out on purpose
+  }, [location.pathname]); // intentionally not depending on items
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black shadow-lg">
       <div className="flex items-center justify-around h-16 px-2">
         {items.map((item, idx) => {
           const active = isActive(item.path, item.isLogo);
+          const isSelected = selected === item.path;
 
           if (item.isLogo) {
             return (
               <Link
                 key={idx}
                 to={item.path}
+                onClick={() => setSelected(item.path)} // remember selection
                 viewTransition
-                aria-current={undefined}
+                aria-current={undefined} // keep logo non-ARIA-active
                 className="flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 text-white"
               >
                 <div className="flex flex-col items-center">
-                  <img id="perspectiv-nav-logo" src={item.icon} alt={item.label} className="w-6 h-6 mb-1" />
+                  <img
+                    id="perspectiv-nav-logo"
+                    src={item.icon}
+                    alt={item.label}
+                    className="w-6 h-6 mb-1"
+                  />
+                  {isSelected && (
+                    <span className="text-xs font-medium">{item.label}</span>
+                  )}
                 </div>
               </Link>
             );
@@ -112,7 +127,6 @@ export default function BottomNavigation() {
             <Link
               key={idx}
               to={item.path}
-              // NEW: remember which icon was tapped
               onClick={() => setSelected(item.path)}
               viewTransition
               aria-current={active ? "page" : undefined}
@@ -132,8 +146,9 @@ export default function BottomNavigation() {
                 ) : (
                   <img src={item.icon} alt={item.label} className="w-6 h-6 mb-1" />
                 )}
-                {/* CHANGED: show label for the selected item (one at a time) */}
-                {selected === item.path && <span className="text-xs font-medium">{item.label}</span>}
+                {isSelected && (
+                  <span className="text-xs font-medium">{item.label}</span>
+                )}
               </div>
             </Link>
           );
