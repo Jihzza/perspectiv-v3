@@ -14,6 +14,7 @@ export default function BottomNavigation() {
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [selected, setSelected] = useState(null);
 
   // Fetch user + profile (same behavior, no styling changes)
   useEffect(() => {
@@ -69,78 +70,75 @@ export default function BottomNavigation() {
   const items = [
     { path: "/", icon: homeIcon, label: "Home" },
     { path: "/dashboard", icon: dashboardIcon, label: "Dashboard" },
-    // Center logo (no label)
     { path: "/chat", icon: logo, label: "Logo", isLogo: true },
     { path: "/settings", icon: settingsIcon, label: "Settings" },
     { path: "/profile", icon: profileIcon, label: "Profile", isProfile: true },
   ];
 
   const isActive = (path, isLogo) => {
-    if (isLogo) return false; // logo never shows text
+    if (isLogo) return false;
     if (path === "/") return location.pathname === "/";
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
 
+  useEffect(() => {
+    const activeItem = items.find((it) => isActive(it.path, it.isLogo));
+    if (activeItem) setSelected(activeItem.path);
+  }, [location.pathname]); // keep items out on purpose
+
   return (
-    <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black shadow-lg">
-        <div className="flex items-center justify-around h-16 px-2">
-          {items.map((item, idx) => {
-            const active = isActive(item.path, item.isLogo);
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black shadow-lg">
+      <div className="flex items-center justify-around h-16 px-2">
+        {items.map((item, idx) => {
+          const active = isActive(item.path, item.isLogo);
 
-            // Center logo: same styling, now a normal Link (instant route)
-            if (item.isLogo) {
-              return (
-                <Link
-                  key={idx}
-                  to={item.path}
-                  viewTransition
-                  aria-current={undefined}
-                  className="flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 text-white"
-                >
-                  <div className="flex flex-col items-center">
-                    <img
-                      id="perspectiv-nav-logo"
-                      src={item.icon}
-                      alt={item.label}
-                      className="w-6 h-6 mb-1"
-                    />
-                    {/* no label under logo */}
-                  </div>
-                </Link>
-              );
-            }
-
-            // Regular items: unchanged styling; label only when active
+          if (item.isLogo) {
             return (
               <Link
                 key={idx}
                 to={item.path}
                 viewTransition
-                aria-current={active ? "page" : undefined}
+                aria-current={undefined}
                 className="flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 text-white"
               >
                 <div className="flex flex-col items-center">
-                  {item.isProfile && avatarUrl ? (
-                    <OctagonAvatar
-                      src={avatarUrl}
-                      alt="Profile"
-                      size={24}
-                      ringWidth={1}
-                      gap={2}
-                      ringColor="#24C8FF"
-                      className="mb-1"
-                    />
-                  ) : (
-                    <img src={item.icon} alt={item.label} className="w-6 h-6 mb-1" />
-                  )}
-                  {active && <span className="text-xs font-medium">{item.label}</span>}
+                  <img id="perspectiv-nav-logo" src={item.icon} alt={item.label} className="w-6 h-6 mb-1" />
                 </div>
               </Link>
             );
-          })}
-        </div>
-      </nav>
-    </>
+          }
+
+          return (
+            <Link
+              key={idx}
+              to={item.path}
+              // NEW: remember which icon was tapped
+              onClick={() => setSelected(item.path)}
+              viewTransition
+              aria-current={active ? "page" : undefined}
+              className="flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 text-white"
+            >
+              <div className="flex flex-col items-center">
+                {item.isProfile && avatarUrl ? (
+                  <OctagonAvatar
+                    src={avatarUrl}
+                    alt="Profile"
+                    size={24}
+                    ringWidth={1}
+                    gap={2}
+                    ringColor="#24C8FF"
+                    className="mb-1"
+                  />
+                ) : (
+                  <img src={item.icon} alt={item.label} className="w-6 h-6 mb-1" />
+                )}
+                {/* CHANGED: show label for the selected item (one at a time) */}
+                {selected === item.path && <span className="text-xs font-medium">{item.label}</span>}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
