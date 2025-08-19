@@ -10,6 +10,7 @@ import Header from './components/Layout/Header'
 import BottomNavigation from './components/Layout/BottomNavigation'
 import ChatHistoryPage from './pages/ChatHistoryPage'
 import ChatConversationPage from './pages/ChatConversationPage'
+import ChatLayoutPage from './pages/ChatLayoutPage'
 
 import AuthProvider from './auth/AuthContext'
 import ProtectedRoute from './auth/ProtectedRoute'
@@ -47,7 +48,8 @@ export default function App() {
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/profile/chat-history" element={<ChatHistoryPage />} />
               <Route path="/profile/chat-history/:sessionId" element={<ChatConversationPage />} />            </Route>
-
+              <Route path="/chat" element={<ChatLayoutPage />} />
+ 
             <Route path="*" element={<h1 className="p-6 text-center">Page Not Found</h1>} />
           </Routes>
         </main>

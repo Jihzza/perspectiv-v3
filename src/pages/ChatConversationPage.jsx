@@ -1,31 +1,59 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import ChatMessage from "../components/Chatbot/ChatMessage";
 import logo from "../assets/Perspectiv.svg";
 import send from "../assets/Send.svg";
 
 const PAGE = 50; // messages per page
-const SESSION_KEY = "chatbot-session-id"; // must match ChatbotSection
+const SESSION_KEY = "chatbot-session-id"; // must match the place where you set it
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function ChatConversationPage({ webhookUrl }) {
-  const { sessionId } = useParams();
+  const { sessionId: paramSessionId } = useParams();
+  const navigate = useNavigate();
+
   const initialHydrateAt = useRef(Date.now());
+  const CHAT_TITLE_WEBHOOK = import.meta.env.VITE_N8N_CHAT_TITLE_WEBHOOK_URL;
 
   const [user, setUser] = useState(null);
+  const [effectiveSessionId, setEffectiveSessionId] = useState(null);
+
   const [messages, setMessages] = useState([]); // { id, role, content, created_at }
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const logRef = useRef(null);
   const endRef = useRef(null);
 
-  // Sync session id to match the main chatbot session handling
+  // Resolve which sessionId to use:
+  // 1) If URL param is a valid UUID, use it.
+  // 2) Else, try sessionStorage.
+  // 3) Else, redirect to history list.
   useEffect(() => {
-    if (sessionId) sessionStorage.setItem(SESSION_KEY, sessionId);
-  }, [sessionId]);
+    let sid = null;
+
+    if (paramSessionId && UUID_RE.test(paramSessionId)) {
+      sid = paramSessionId;
+    } else {
+      const stored = sessionStorage.getItem(SESSION_KEY);
+      if (stored && UUID_RE.test(stored)) sid = stored;
+    }
+
+    if (sid) {
+      setEffectiveSessionId(sid);
+      // keep storage in sync
+      sessionStorage.setItem(SESSION_KEY, sid);
+    } else {
+      // No valid session id anywhere -> go to the list
+      navigate("/profile/chat-history", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramSessionId]);
 
   // Auth user
   useEffect(() => {
@@ -39,27 +67,30 @@ export default function ChatConversationPage({ webhookUrl }) {
 
   // Fetch messages for this session (ascending so newest at bottom)
   useEffect(() => {
-    if (!sessionId) return;
+    if (!effectiveSessionId) return;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       const from = page * PAGE;
       const to = from + PAGE - 1;
       try {
         const { data, error } = await supabase
           .from("chat_messages")
           .select("id, role, content, created_at")
-          .eq("session_id", sessionId)
+          .eq("session_id", effectiveSessionId) // validated UUID
           .order("created_at", { ascending: true })
           .range(from, to);
+
         if (error) throw error;
-        setMessages(prev => (page === 0 ? (data ?? []) : [...prev, ...(data ?? [])]));
+        setMessages((prev) => (page === 0 ? (data ?? []) : [...prev, ...(data ?? [])]));
       } catch (e) {
         console.error("Failed to load messages", e);
+        setLoadError(e?.message || "Failed to load messages.");
       } finally {
         setLoading(false);
       }
     })();
-  }, [sessionId, page]);
+  }, [effectiveSessionId, page]);
 
   // Auto-scroll like main chatbot
   useEffect(() => {
@@ -84,27 +115,57 @@ export default function ChatConversationPage({ webhookUrl }) {
   async function sendMessage(e) {
     e.preventDefault();
     const text = draft.trim();
-    if (!text || isSending) return;
+    if (!text || isSending || !effectiveSessionId) return;
 
     // optimistic user message
     const now = new Date().toISOString();
     const userMsg = { id: Date.now(), role: "user", content: text, created_at: now };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setDraft("");
     setIsSending(true);
 
+    try {
+      const userCountBefore = messages.filter((m) => m.role !== "assistant").length; // users only
+      const isFirstUserMsg = userCountBefore === 0;
+      if (isFirstUserMsg && CHAT_TITLE_WEBHOOK) {
+        const historyForTitle = [...messages, userMsg].map((m) => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content,
+        }));
+        const form2 = new URLSearchParams();
+        form2.set("session_id", effectiveSessionId ?? "");
+        form2.set("user_id", user?.id ?? "");
+        form2.set("history", JSON.stringify(historyForTitle));
+        // optional: also send first assistant reply later if your n8n flow prefers both sides
+        await fetch(CHAT_TITLE_WEBHOOK, { method: "POST", body: form2 });
+      }
+    } catch {
+      // fire-and-forget; UI reads title from Supabase later
+    }
+
     // temporary typing bubble
     const typingId = Date.now() + 1;
-    setMessages(prev => [...prev, { id: typingId, role: "assistant", content: "…", created_at: now }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: typingId, role: "assistant", content: "…", created_at: now },
+    ]);
 
     const resolvedWebhook =
-      webhookUrl || import.meta.env.VITE_N8N_WEBHOOK_URL || import.meta.env.VITE_N8N_DECISION_WEBHOOK_URL;
+      webhookUrl ||
+      import.meta.env.VITE_N8N_WEBHOOK_URL ||
+      import.meta.env.VITE_N8N_DECISION_WEBHOOK_URL;
 
     if (!resolvedWebhook) {
       setTimeout(() => {
-        setMessages(prev => [
-          ...prev.filter(m => m.id !== typingId),
-          { id: Date.now() + 2, role: "assistant", content: "I'm sorry, but I'm not connected to a backend service yet. Please configure the VITE_N8N_WEBHOOK_URL environment variable.", created_at: new Date().toISOString() },
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== typingId),
+          {
+            id: Date.now() + 2,
+            role: "assistant",
+            content:
+              "I'm sorry, but I'm not connected to a backend service yet. Please configure the VITE_N8N_WEBHOOK_URL environment variable.",
+            created_at: new Date().toISOString(),
+          },
         ]);
         setIsSending(false);
       }, 600);
@@ -113,37 +174,42 @@ export default function ChatConversationPage({ webhookUrl }) {
 
     try {
       const payload = {
-        session_id: sessionId,
+        session_id: effectiveSessionId,
         user_id: user?.id,
         chatInput: text,
         message: text,
-        history: messages.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+        history: messages.map((m) => ({
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content,
+        })),
       };
 
       // Send as form-encoded to avoid CORS preflight (OPTIONS).
-      // All fields the workflow expects stay the same keys as before.
       const form = new URLSearchParams();
-      form.set("session_id", sessionId ?? "");
+      form.set("session_id", effectiveSessionId ?? "");
       form.set("user_id", user?.id ?? "");
       form.set("chatInput", text);
       form.set("message", text);
-      // History is an array -> stringify it
       form.set(
         "history",
-        JSON.stringify(messages.map(m => ({
-          role: m.role === "assistant" ? "assistant" : "user",
-          content: m.content
-        })))
+        JSON.stringify(
+          messages.map((m) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          }))
+        )
       );
 
       const res = await fetch(resolvedWebhook, {
         method: "POST",
-        body: form,            // no headers -> browser sets x-www-form-urlencoded
+        body: form, // no headers -> browser sets x-www-form-urlencoded
       });
 
       if (!res.ok) {
         let details = "";
-        try { details = await res.text(); } catch { }
+        try {
+          details = await res.text();
+        } catch {}
         throw new Error(`Webhook error ${res.status}${details ? ` - ${details}` : ""}`);
       }
 
@@ -151,15 +217,25 @@ export default function ChatConversationPage({ webhookUrl }) {
       const reply = extractText(data);
 
       // replace typing w/ reply
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== typingId),
-        { id: Date.now() + 3, role: "assistant", content: reply, created_at: new Date().toISOString() },
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== typingId),
+        {
+          id: Date.now() + 3,
+          role: "assistant",
+          content: reply,
+          created_at: new Date().toISOString(),
+        },
       ]);
     } catch (err) {
       console.error("sendMessage error", err);
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== typingId),
-        { id: Date.now() + 4, role: "assistant", content: "Sorry, an error occurred.", created_at: new Date().toISOString() },
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== typingId),
+        {
+          id: Date.now() + 4,
+          role: "assistant",
+          content: "Sorry, an error occurred.",
+          created_at: new Date().toISOString(),
+        },
       ]);
     } finally {
       setIsSending(false);
@@ -179,6 +255,10 @@ export default function ChatConversationPage({ webhookUrl }) {
             className="flex flex-col gap-4 h-90 px-4 overflow-y-auto"
             style={{ overflowAnchor: "none" }}
           >
+            {loadError && (
+              <div className="text-red-400 text-sm">Error: {String(loadError)}</div>
+            )}
+
             {loading && messages.length === 0 ? (
               <div className="text-white/70">Loading conversation…</div>
             ) : (
@@ -209,12 +289,12 @@ export default function ChatConversationPage({ webhookUrl }) {
                 placeholder="Type a message…"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                disabled={isSending}
+                disabled={isSending || !effectiveSessionId}
                 aria-label="Message"
               />
               <button
                 type="submit"
-                disabled={isSending || !draft.trim()}
+                disabled={isSending || !draft.trim() || !effectiveSessionId}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full disabled:cursor-not-allowed"
                 aria-label="Send message"
                 title="Send"
@@ -226,7 +306,9 @@ export default function ChatConversationPage({ webhookUrl }) {
 
           {/* Back link (subtle) */}
           <div className="px-4 mt-4 text-xs text-white/60">
-            <Link to="/profile/chat-history" className="underline hover:text-white/80">← Back to history</Link>
+            <Link to="/profile/chat-history" className="underline hover:text-white/80">
+              ← Back to history
+            </Link>
           </div>
         </section>
       </div>

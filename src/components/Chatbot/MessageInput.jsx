@@ -120,12 +120,12 @@ const MessageInput = forwardRef(function MessageInput(
           e.preventDefault();
           handleSend();
         }}
-        className="relative bg-black/30 backdrop-blur-md border-2 border-[#33ccff] p-2"
+        className="relative justify-center items-center flex bg-black/30 backdrop-blur-md border-2 border-[#33ccff] p-2"
       >
         <textarea
           ref={areaRef}
           rows={1}
-          className="w-full text-white placeholder:text-white/50 bg-transparent resize-none outline-none max-h-[40vh] pr-12"
+          className="w-full text-white placeholder:text-white/50 bg-transparent resize-none outline-none max-h-[40vh] pr-12 pl-1"
           placeholder="Type a message…"
           value={value}
           onChange={(e) => onChange?.(e.target.value)}

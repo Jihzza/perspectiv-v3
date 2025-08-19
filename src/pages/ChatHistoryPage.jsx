@@ -106,7 +106,7 @@ export default function ChatHistoryPage() {
         </div>
 
         {/* List card */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+        <div>
           {/* Empty state */}
           {!loading && !hasRows && (
             <div className="rounded-xl border border-white/20 p-8 text-center text-gray-300 bg-white/5">
@@ -136,6 +136,7 @@ export default function ChatHistoryPage() {
             <ul className="space-y-3">
               {rows.map((row) => {
                 const title =
+                  (row.title && row.title.trim()) ||
                   row.last_user_message?.slice(0, 60) ||
                   row.last_assistant_message?.slice(0, 60) ||
                   `Session ${row.session_id.slice(0, 8)}`;
@@ -152,15 +153,9 @@ export default function ChatHistoryPage() {
                           {timeAgo(ts)}
                         </time>
                       </div>
-                      <p className="text-sm text-gray-200/90 line-clamp-2">
-                        {row.last_assistant_message || row.last_user_message || "—"}
-                      </p>
                       <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
                         <span className="inline-flex items-center gap-1 bg-white/10 border border-white/15 px-2 py-1 rounded-full">
                           {row.messages_count} messages
-                        </span>
-                        <span className="inline-flex items-center gap-1 bg-white/5 border border-white/10 px-2 py-1 rounded-full">
-                          {row.session_id.slice(0, 8)}…
                         </span>
                       </div>
                     </Link>

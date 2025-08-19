@@ -3,67 +3,45 @@ import HeroSection from "../components/Hero/HeroSection";
 import ChatbotSection from "../components/Chatbot/ChatbotSection";
 import ServicesDescriptionSection from "../components/Services/ServicesDescriptionSection";
 import DashboardSection from "../components/Dashboard/DashboardSection";
-import useOnScreen from "../hooks/useOnScreen";
 import useScrollTrigger from "../hooks/useScrollTrigger";
 import { supabase } from "../lib/supabaseClient";
-import ChatInputDock from "../components/Chatbot/ChatInputDock";
+import { toPng } from "html-to-image";
+import GenieEffectOverlay from "../components/Effects/GenieEffectOverlay";
 
 export default function HomePage() {
   const started = useScrollTrigger(16);
-  const [showDock, setShowDock] = useState(false);
   const chatbotRef = useRef(null);
+  const [userId, setUserId] = useState(undefined);
 
-  const [userId, setUserId] = useState(undefined); // undefined until we check
+  const [overlay, setOverlay] = useState(null); // { imgSrc, fromRect, toRect }
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-    // get current user now
-    // 1) get current user now (network-validates the session)
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
-    // 2) keep in sync with auth changes (documented API)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evt, session) => {
-      setUserId(session?.user?.id ?? null);
-    });
+    const { data: { subscription } } =
+      supabase.auth.onAuthStateChange((_evt, session) => setUserId(session?.user?.id ?? null));
     return () => subscription?.unsubscribe();
   }, []);
 
-  // Mirror userId into localStorage for immediate availability
   useEffect(() => {
-    try {
-      if (userId) localStorage.setItem("user_id", userId);
-      else localStorage.removeItem("user_id");
-    } catch { }
-  }, [userId]);
+    if (!started) return;
+    const chatEl = chatbotRef.current;
+    const logoEl = document.getElementById("perspectiv-nav-logo");
+    if (!chatEl || !logoEl) return;
 
-  // Observe the chatbot wrapper
-  const chatVisible = useOnScreen(chatbotRef, { threshold: 0.15 });
+    const fr = chatEl.getBoundingClientRect();
+    const tr = logoEl.getBoundingClientRect();
 
-  const openChatAndFocus = (prefill = "") => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const onChatTransitionEnd = (e) => {
-    if (!started) return;                           // only care when collapsing
-    if (e.target !== chatbotRef.current) return;    // only the wrapper
-    if (["max-height", "opacity", "margin"].includes(e.propertyName)) {
-      setShowDock(true);                            // 🎯 right after the animation
-    }
-  };
-
-  // hide dock immediately when expanding again
-  useEffect(() => {
-    if (!started) setShowDock(false);
+    // Snapshot the chat area at 1:1 CSS pixels
+    toPng(chatEl, { pixelRatio: 1, cacheBust: true, backgroundColor: null })
+      .then((dataUrl) => setOverlay({ imgSrc: dataUrl, fromRect: fr, toRect: tr }))
+      .catch(() => setOverlay(null));
   }, [started]);
-
 
   return (
     <main className="min-h-screen">
       <HeroSection />
-
-      {/* Chatbot wrapper that collapses when out of view */}
       <div
         ref={chatbotRef}
-        onTransitionEnd={onChatTransitionEnd}
         className={[
           "overflow-hidden",
           "motion-safe:transition-[max-height,opacity,margin] motion-safe:duration-200 motion-safe:ease-out",
@@ -77,15 +55,16 @@ export default function HomePage() {
         />
       </div>
 
-      {/* Floating dock (same styling as chat input), appears AFTER animation ends */}
-      {showDock && (
-        <ChatInputDock
-          onOpen={() => window.scrollTo({ top: 0, behavior: "smooth" })} // reopen full chat
+      {overlay && (
+        <GenieEffectOverlay
+          imgSrc={overlay.imgSrc}
+          fromRect={overlay.fromRect}
+          toRect={overlay.toRect}
+          duration={700}
+          rowPx={6}
+          onDone={() => setOverlay(null)}
         />
       )}
-
-      {/* Floating dock appears only when chat is NOT visible */}
-      {!chatVisible && <ChatInputDock onOpen={openChatAndFocus} />}
 
       <ServicesDescriptionSection />
       <DashboardSection />
