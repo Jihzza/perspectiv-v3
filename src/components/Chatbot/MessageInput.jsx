@@ -25,7 +25,8 @@ const XL = 12;     // ~ rounded-xl (px)
 function useAutosize(textarea, value, maxVH = MAX_VH) {
   useLayoutEffect(() => {
     if (!textarea) return;
-    const maxPx = Math.round(window.innerHeight * (maxVH / 100));
+    const vh = window.visualViewport?.height ?? window.innerHeight;
+    const maxPx = Math.round(vh * (maxVH / 100));
 
     textarea.style.height = "0px";
     const next = Math.min(textarea.scrollHeight, maxPx);

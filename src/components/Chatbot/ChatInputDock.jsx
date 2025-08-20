@@ -5,7 +5,8 @@ import send from "../../assets/Send.svg";
 function useAutosize(el, value, maxVH = 40) {
   useLayoutEffect(() => {
     if (!el) return;
-    const maxPx = Math.round(window.innerHeight * (maxVH / 100));
+    const vh = window.visualViewport?.height ?? window.innerHeight;
+    const maxPx = Math.round(vh * (maxVH / 100));
     el.style.height = "0px";
     const next = Math.min(el.scrollHeight, maxPx);
     el.style.height = next + "px";

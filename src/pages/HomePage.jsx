@@ -72,11 +72,10 @@ export default function HomePage() {
     try {
       // Lower pixelRatio for perf; cacheBust helps with CORS images
       return await htmlToImage.toPng(node, {
-        pixelRatio: Math.min(1.2, window.devicePixelRatio || 1),
+        pixelRatio: 1,           // iPhones are 2x/3x DPR; keep it 1 for stability
         cacheBust: true,
         backgroundColor: "transparent",
-        // Optional: filter out elements you don't want in the snapshot
-        // filter: (n) => !(n.dataset && n.dataset.noScreenshot === "true"),
+        imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" // 1x1 transparent
       });
     } catch (e) {
       console.warn("Snapshot failed, proceeding without overlay:", e);
@@ -99,17 +98,17 @@ export default function HomePage() {
     // MINIMIZE — earlier
     if (!minimized && dir === "down" && latest >= THRESHOLD_DOWN) {
       setAnimating(true);
-      // 1) capture snapshot BEFORE collapsing
-      const dataUrl = await captureChatSnapshot();
+      let dataUrl = null;
+      if (!unreliableSnapshot) {
+        dataUrl = await captureChatSnapshot();
+      }
       if (dataUrl) setSnapUrl(dataUrl);
-      // 2) start overlay
       setOverlayMode("minimize");
-      setShowOverlay(!!dataUrl); // show overlay only if we have a snapshot
-      // 3) collapse the live section (page content moves up)
+      setShowOverlay(!!dataUrl);
       setMinimized(true);
-      // If no snapshot, we still finish instantly (collapse alone)
-      if (!dataUrl) setAnimating(false);
+      if (!dataUrl) setTimeout(() => setAnimating(false), 260); // allow wrapper tween (~0.25s) to finish
     }
+    
 
     // RESTORE — as user scrolls back up
     if (minimized && dir === "up" && latest <= THRESHOLD_UP) {
@@ -130,6 +129,8 @@ export default function HomePage() {
   const wrapperAnimate = minimized
     ? { maxHeight: 0, opacity: 0, marginTop: -16 }
     : { maxHeight: baseH, opacity: 1, marginTop: 0 };
+  const isLikelyIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+  const unreliableSnapshot = isLikelyIOS; // keep it simple; refine later if you like
 
   return (
     <main className="min-h-screen">
@@ -153,14 +154,17 @@ export default function HomePage() {
       </motion.div>
 
       {/* Snapshot suction overlay */}
-      {showOverlay && snapUrl && (
+      {!reduceMotion && showOverlay && snapUrl && (
         <SnapshotSuctionOverlay
           imgSrc={snapUrl}
           anchorRef={chatbotRef}
           targetSelector="#perspectiv-nav-logo"
           mode={overlayMode}
-          duration={reduceMotion ? 0 : 0.5}   // no motion when reduced
-          endOpacity={reduceMotion ? 1 : 0.88}
+          duration={0.5}          // was 0.28 -> slightly longer flight
+          endOpacity={0.88}        // was 0.5 -> fades a bit more
+          targetPosition="outsideBottom" // <- key change
+          targetYOffset={-260}       // extra pull past the edge
+          zStart={40}              // keep under the BottomNav
           onComplete={() => { setShowOverlay(false); setAnimating(false); }}
         />
       )}
