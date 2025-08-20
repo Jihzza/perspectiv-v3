@@ -15,7 +15,7 @@ export default function HeroSection() {
         {/* Logo */}
         <img src={PerspectivLogo} alt="Perspectiv Logo" className="w-45 h-45"/>
 
-        <p className="text-white text-lg text-center pb-8 font-bold">We help you integrate AI into your business!</p>
+        <p className="text-white text-xl text-center pb-8 font-bold">We help you integrate AI into your business!</p>
         {/* Service boxes */}
         <div className="flex justify-center items-center gap-2 w-full">
           {services.map(({ icon, label }) => (
