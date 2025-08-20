@@ -1,138 +1,172 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+// src/pages/HomePage.jsx
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion, useScroll, useMotionValueEvent, cubicBezier } from "framer-motion";
+import * as htmlToImage from "html-to-image";
+
 import HeroSection from "../components/Hero/HeroSection";
 import ChatbotSection from "../components/Chatbot/ChatbotSection";
 import ServicesDescriptionSection from "../components/Services/ServicesDescriptionSection";
 import DashboardSection from "../components/Dashboard/DashboardSection";
-import useScrollTrigger from "../hooks/useScrollTrigger";
 import { supabase } from "../lib/supabaseClient";
-import * as htmlToImage from "html-to-image";
-import GenieEffectOverlay from "../components/Effects/GenieEffectOverlay";
+
+import SnapshotSuctionOverlay from "../components/Effects/SnapshotSuctionOverlay";
 
 export default function HomePage() {
-  const started = useScrollTrigger(16);
   const chatbotRef = useRef(null);
+
+  // --- Auth (same as before) ---
   const [userId, setUserId] = useState(undefined);
-
-  const [overlay, setOverlay] = useState(null); // { imgSrc, fromRect, toRect }
-
-  // Stable onDone (avoids effect churn in React 18 Strict Mode dev)
-  const handleOverlayDone = useCallback(() => setOverlay(null), []);
-
-  // Wait until scrolling is idle before capturing/animating
-  function waitForScrollIdle({ maxWait = 300, idle = 100 } = {}) {
-    return new Promise((resolve) => {
-      let done = false;
-      const finish = () => { if (!done) { done = true; cleanup(); resolve(); } };
-
-      const onEnd = () => finish();
-      const onScroll = () => { last = performance.now(); };
-      let last = performance.now();
-      let poll;
-
-      const cleanup = () => {
-        document.removeEventListener("scrollend", onEnd);
-        window.removeEventListener("scroll", onScroll, { passive: true });
-        clearInterval(poll);
-      };
-
-      if ("onscrollend" in document) {
-        document.addEventListener("scrollend", onEnd, { once: true });
-        setTimeout(finish, maxWait); // safety
-      } else {
-        window.addEventListener("scroll", onScroll, { passive: true });
-        poll = setInterval(() => {
-          if (performance.now() - last >= idle) finish();
-        }, 50);
-        setTimeout(finish, maxWait);
-      }
-    });
-  }
-
-  // Cap snapshot pixel area & max side (safer for Safari/iOS)
-  const MAX_PIXELS = 8_000_000; // ~8MP
-  const MAX_SIDE = 4096;        // iOS per-side ceiling
-
-  function scaledCanvasSize(w, h, maxPx = MAX_PIXELS, maxSide = MAX_SIDE) {
-    let sw = Math.min(w, maxSide);
-    let sh = Math.min(h, maxSide);
-    const area = sw * sh;
-    if (area <= maxPx) return [Math.floor(sw), Math.floor(sh)];
-    const scale = Math.sqrt(maxPx / area);
-    return [Math.max(1, Math.floor(sw * scale)), Math.max(1, Math.floor(sh * scale))];
-  }
-
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
-    const { data: { subscription } } =
-      supabase.auth.onAuthStateChange((_evt, session) => setUserId(session?.user?.id ?? null));
-    return () => subscription?.unsubscribe();
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (mounted) setUserId(data?.user?.id ?? null);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setUserId(session?.user?.id ?? null);
+    });
+    return () => sub?.subscription?.unsubscribe?.();
+  }, []);
+  useEffect(() => {
+    try {
+      if (userId) localStorage.setItem("user_id", userId);
+      else localStorage.removeItem("user_id");
+    } catch { }
+  }, [userId]);
+
+  // --- Reduced motion ---
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setReduceMotion(!!mq.matches);
+    apply();
+    mq.addEventListener?.("change", apply);
+    return () => mq.removeEventListener?.("change", apply);
   }, []);
 
-  useEffect(() => {
-    if (!started) return;
-    const chatEl = chatbotRef.current;
-    const logoEl = document.getElementById("perspectiv-nav-logo");
-    if (!chatEl || !logoEl) return;
+  // --- Measure base height for collapse/expand ---
+  const [baseH, setBaseH] = useState(560);
+  useLayoutEffect(() => {
+    const el = chatbotRef.current;
+    if (el) {
+      const h = el.offsetHeight;
+      if (h) setBaseH(h);
+    }
+  }, []);
 
-    (async () => {
-      // Wait until scrolling is idle (iOS can throttle rAF during touch scroll)
-      await waitForScrollIdle();
+  // --- State & overlay control ---
+  const [minimized, setMinimized] = useState(false);
+  const [animating, setAnimating] = useState(false);
+  const [snapUrl, setSnapUrl] = useState(null);
+  const [overlayMode, setOverlayMode] = useState("minimize");
+  const [showOverlay, setShowOverlay] = useState(false);
 
-      const fr = chatEl.getBoundingClientRect();
-      const tr = logoEl.getBoundingClientRect();
+  // Early trigger + hysteresis
+  const THRESHOLD_DOWN = 60;  // trigger earlier
+  const THRESHOLD_UP = 24;  // restore sooner on scroll-up
 
-      try {
-        // Downscale snapshot to stay within safe pixel limits
-        const [cw, ch] = scaledCanvasSize(fr.width, fr.height);
+  // Capture helper: PNG snapshot of the chat section
+  async function captureChatSnapshot() {
+    const node = chatbotRef.current;
+    if (!node) return null;
+    try {
+      // Lower pixelRatio for perf; cacheBust helps with CORS images
+      return await htmlToImage.toPng(node, {
+        pixelRatio: Math.min(1.2, window.devicePixelRatio || 1),
+        cacheBust: true,
+        backgroundColor: "transparent",
+        // Optional: filter out elements you don't want in the snapshot
+        // filter: (n) => !(n.dataset && n.dataset.noScreenshot === "true"),
+      });
+    } catch (e) {
+      console.warn("Snapshot failed, proceeding without overlay:", e);
+      return null;
+    }
+  }
 
-        const canvas = await htmlToImage.toCanvas(chatEl, {
-          pixelRatio: 1,          // keep math simple and predictable
-          backgroundColor: null,  // preserve transparency
-          cacheBust: true,
-          canvasWidth: cw,
-          canvasHeight: ch,
-        });
+  // Scroll direction + thresholds
+  const { scrollY } = useScroll();
+  const lastY = useRef(0);
 
-        // Use a Blob URL (decodes more reliably on Safari than huge data URLs)
-        const blob = await new Promise((res) => canvas.toBlob(res, "image/png", 0.92));
-        if (!blob) throw new Error("Canvas toBlob returned null");
-        const url = URL.createObjectURL(blob);
+  useMotionValueEvent(scrollY, "change", async (latest) => {
+    if (reduceMotion) return;
+    if (animating) { lastY.current = latest; return; }
 
-        setOverlay({ imgSrc: url, fromRect: fr, toRect: tr });
-      } catch (_err) {
-        setOverlay(null); // optional: add a simple CSS fallback here
+    const prev = lastY.current;
+    const dir = latest > prev ? "down" : "up";
+    lastY.current = latest;
+
+    // MINIMIZE — earlier
+    if (!minimized && dir === "down" && latest >= THRESHOLD_DOWN) {
+      setAnimating(true);
+      // 1) capture snapshot BEFORE collapsing
+      const dataUrl = await captureChatSnapshot();
+      if (dataUrl) setSnapUrl(dataUrl);
+      // 2) start overlay
+      setOverlayMode("minimize");
+      setShowOverlay(!!dataUrl); // show overlay only if we have a snapshot
+      // 3) collapse the live section (page content moves up)
+      setMinimized(true);
+      // If no snapshot, we still finish instantly (collapse alone)
+      if (!dataUrl) setAnimating(false);
+    }
+
+    // RESTORE — as user scrolls back up
+    if (minimized && dir === "up" && latest <= THRESHOLD_UP) {
+      setAnimating(true);
+      // Use cached snapshot for reverse flight (avoid re-capturing)
+      if (snapUrl) {
+        setOverlayMode("restore");
+        setShowOverlay(true);
       }
-    })();
-  }, [started]);
+      // Expand live section underneath
+      setMinimized(false);
+      if (!snapUrl) setAnimating(false);
+    }
+  });
+
+  // Wrapper animation props (collapses when minimized)
+  const fluentAccelerate = cubicBezier(1, 0, 1, 1);
+  const wrapperAnimate = minimized
+    ? { maxHeight: 0, opacity: 0, marginTop: -16 }
+    : { maxHeight: baseH, opacity: 1, marginTop: 0 };
 
   return (
     <main className="min-h-screen">
       <HeroSection />
 
-      <div
+      {/* Collapsible Chat wrapper */}
+      <motion.div
         ref={chatbotRef}
-        className={[
-          "overflow-hidden",
-          "motion-safe:transition-[max-height,opacity,margin] motion-safe:duration-200 motion-safe:ease-out",
-          started ? "max-h-0 opacity-0 -mt-4 pointer-events-none" : "max-h-[700px] opacity-100"
-        ].join(" ")}
+        className="overflow-hidden"
+        initial={false}
+        animate={reduceMotion ? { maxHeight: 0, opacity: 0 } : wrapperAnimate}
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: fluentAccelerate }}
+        style={{ willChange: "max-height, opacity, margin-top" }}
       >
         <ChatbotSection
           webhookUrl={import.meta.env.VITE_N8N_DECISION_WEBHOOK_URL}
           welcomeWebhookUrl={import.meta.env.VITE_N8N_WELCOME_WEBHOOK_URL}
           userId={userId}
         />
-      </div>
+      </motion.div>
 
-      {overlay && (
-        <GenieEffectOverlay
-          imgSrc={overlay.imgSrc}
-          fromRect={overlay.fromRect}
-          toRect={overlay.toRect}
-          duration={700}
-          rowPx={6}
-          onDone={handleOverlayDone}
-        />
+      {/* Snapshot suction overlay */}
+      {!reduceMotion && showOverlay && snapUrl && (
+        <SnapshotSuctionOverlay
+        imgSrc={snapUrl}
+        anchorRef={chatbotRef}
+        targetSelector="#perspectiv-nav-logo"
+        mode={overlayMode}
+        duration={0.5}          // was 0.28 -> slightly longer flight
+        endOpacity={0.88}        // was 0.5 -> fades a bit more
+        targetPosition="outsideBottom" // <- key change
+        targetYOffset={-260}       // extra pull past the edge
+        zStart={40}              // keep under the BottomNav
+        onComplete={() => { setShowOverlay(false); setAnimating(false); }}
+      />
+      
+
       )}
 
       <ServicesDescriptionSection />
