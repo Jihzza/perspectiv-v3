@@ -109,19 +109,18 @@ const MessageInput = forwardRef(function MessageInput(
   return (
     <div
       data-composer
-      className="fixed left-0 right-0 z-50 px-4 pb-[calc(env(safe-area-inset-bottom))]"
-      style={{ bottom: `calc(${NAV_H}px + env(safe-area-inset-bottom))` }}
+      className="relative px-4 pt-2 pb-3"
     >
       <motion.form
         ref={formRef}
         layout
         style={{ borderRadius }}
-        transition={LAYOUT_TRANSITION}
+        transition={{ layout: { duration: 0.22, ease: "easeOut" } }}
         onSubmit={(e) => {
           e.preventDefault();
           handleSend();
         }}
-        className="relative justify-center items-center flex bg-black/30 backdrop-blur-md border-2 border-[#33ccff] p-2"
+        className="relative justify-center items-center flex bg-black/30 backdrop-blur-md border-2 border-[#33ccff] p-2 rounded-2xl"
       >
         <textarea
           ref={areaRef}
