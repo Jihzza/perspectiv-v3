@@ -153,21 +153,16 @@ export default function HomePage() {
       </motion.div>
 
       {/* Snapshot suction overlay */}
-      {!reduceMotion && showOverlay && snapUrl && (
+      {showOverlay && snapUrl && (
         <SnapshotSuctionOverlay
           imgSrc={snapUrl}
           anchorRef={chatbotRef}
           targetSelector="#perspectiv-nav-logo"
           mode={overlayMode}
-          duration={0.5}          // was 0.28 -> slightly longer flight
-          endOpacity={0.88}        // was 0.5 -> fades a bit more
-          targetPosition="outsideBottom" // <- key change
-          targetYOffset={-260}       // extra pull past the edge
-          zStart={40}              // keep under the BottomNav
+          duration={reduceMotion ? 0 : 0.5}   // no motion when reduced
+          endOpacity={reduceMotion ? 1 : 0.88}
           onComplete={() => { setShowOverlay(false); setAnimating(false); }}
         />
-
-
       )}
 
       <ServicesDescriptionSection />
