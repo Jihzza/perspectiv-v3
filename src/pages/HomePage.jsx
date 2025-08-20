@@ -140,10 +140,11 @@ export default function HomePage() {
         ref={chatbotRef}
         className="overflow-hidden"
         initial={false}
-        animate={reduceMotion ? { maxHeight: 0, opacity: 0 } : wrapperAnimate}
+        animate={reduceMotion ? { maxHeight: baseH, opacity: 1, marginTop: 0 } : wrapperAnimate}
         transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: fluentAccelerate }}
         style={{ willChange: "max-height, opacity, margin-top" }}
       >
+
         <ChatbotSection
           webhookUrl={import.meta.env.VITE_N8N_DECISION_WEBHOOK_URL}
           welcomeWebhookUrl={import.meta.env.VITE_N8N_WELCOME_WEBHOOK_URL}
@@ -154,18 +155,18 @@ export default function HomePage() {
       {/* Snapshot suction overlay */}
       {!reduceMotion && showOverlay && snapUrl && (
         <SnapshotSuctionOverlay
-        imgSrc={snapUrl}
-        anchorRef={chatbotRef}
-        targetSelector="#perspectiv-nav-logo"
-        mode={overlayMode}
-        duration={0.5}          // was 0.28 -> slightly longer flight
-        endOpacity={0.88}        // was 0.5 -> fades a bit more
-        targetPosition="outsideBottom" // <- key change
-        targetYOffset={-260}       // extra pull past the edge
-        zStart={40}              // keep under the BottomNav
-        onComplete={() => { setShowOverlay(false); setAnimating(false); }}
-      />
-      
+          imgSrc={snapUrl}
+          anchorRef={chatbotRef}
+          targetSelector="#perspectiv-nav-logo"
+          mode={overlayMode}
+          duration={0.5}          // was 0.28 -> slightly longer flight
+          endOpacity={0.88}        // was 0.5 -> fades a bit more
+          targetPosition="outsideBottom" // <- key change
+          targetYOffset={-260}       // extra pull past the edge
+          zStart={40}              // keep under the BottomNav
+          onComplete={() => { setShowOverlay(false); setAnimating(false); }}
+        />
+
 
       )}
 
