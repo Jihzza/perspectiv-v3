@@ -14,7 +14,7 @@ export default function ChatLog({ messages, logo, onBotTypingStart, onBotTypingE
         <div
             role="log"
             aria-live="polite"
-            className="flex flex-col gap-4 h-55 px-4 overflow-y-auto"
+            className="flex flex-col gap-4 h-50 px-4 overflow-y-auto"
             style={{ overflowAnchor: "none" }}
         >
             {messages.map((m) =>
