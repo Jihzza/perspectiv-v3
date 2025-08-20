@@ -10,7 +10,7 @@ const services = [
 
 export default function HeroSection() {
   return (
-    <section className="w-full h-auto pb-12">
+    <section className="w-full h-auto pb-6">
       <div className="container mx-auto px-4 flex flex-col items-center">
         {/* Logo */}
         <img src={PerspectivLogo} alt="Perspectiv Logo" className="w-45 h-45"/>
