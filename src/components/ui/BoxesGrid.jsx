@@ -18,8 +18,8 @@ function CardTabSimple({ label, index, isActive, onSelect, tabId, panelId, focus
       className={[
         "flex w-full h-30 items-center justify-center rounded-2xl",
         "bg-gradient-to-b from-white/10 to-white/5 border border-white/15",
-        "text-white px-3 text-center focus:outline-none focus:ring-2 focus:ring-white/60",
-        isActive ? "ring-1 ring-white/60" : "hover:from-white/20 hover:to-white/10",
+        "text-white px-3 text-center focus:outline-none focus:ring-2 focus:ring-white/40",
+        isActive ? "ring-1 ring-white/40" : "hover:from-white/20 hover:to-white/10",
       ].join(" ")}
     >
       <p className="text-sm font-semibold leading-tight line-clamp-2">{label}</p>
@@ -38,18 +38,26 @@ function CardTabSimple({ label, index, isActive, onSelect, tabId, panelId, focus
  */
 export default function BoxesGrid({
   items = [
-    { label: "First card", paragraph: "This is the paragraph for the first card." },
-    { label: "Second card", paragraph: "This is the paragraph for the second card." },
-    { label: "Third card", paragraph: "This is the paragraph for the third card." },
+    { label: "AI Strategy & Roadmap", paragraph: "A phased plan tailored to your goals—quick wins first, long-term bets after." },
+    { label: "Tool & Platform Guidance", paragraph: "Recommendations based on your stack, team skills, and budget." },
+    { label: "Data Readiness Assessment", paragraph: "Snapshot of data quality, access, and governance with practical steps." },
+    { label: "Use Case Discovery", paragraph: "Identify high-ROI use cases and risks with impact estimates." },
+    { label: "Security & Compliance Advisory", paragraph: "Ensure privacy, safety, and compliance in your AI initiatives." },
+    { label: "Model Evaluation & Analysis", paragraph: "Test, compare, and monitor model performance and drift." },
+    { label: "Change Management", paragraph: "Train teams and build processes to adopt AI successfully." },
   ],
 }) {
   // Normalize input; support both {label, paragraph} and {name, subtitle}. No slicing: render all items.
-  const normalized = (items || []).map((i) => {
-    if (typeof i === "string") return { label: i, paragraph: "" };
-    const label = i.label ?? i.name ?? "";
-    const paragraph = i.paragraph ?? i.subtitle ?? "";
-    return { ...i, label, paragraph };
-  });
+  const normalized = useMemo(
+    () =>
+      (items || []).map((i) => {
+        if (typeof i === "string") return { label: i, paragraph: "" };
+        const label = i.label ?? i.name ?? "";
+        const paragraph = i.paragraph ?? i.subtitle ?? "";
+        return { ...i, label, paragraph };
+      }),
+    [items]
+  );
 
   const [active, setActive] = useState(0);
   const listId = useId();
@@ -65,15 +73,41 @@ export default function BoxesGrid({
     [normalized, listId]
   );
 
+  // Keyboard nav: Left/Right/Home/End + Up/Down for a 2-column grid
   function onKeyDown(e, i) {
-    if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) return;
-    e.preventDefault();
     const last = normalized.length - 1;
+    const colCount = 2;
+    const col = i % colCount;
+    const row = Math.floor(i / colCount);
+
     let next = i;
-    if (e.key === "ArrowRight") next = i === last ? 0 : i + 1;
-    if (e.key === "ArrowLeft") next = i === 0 ? last : i - 1;
-    if (e.key === "Home") next = 0;
-    if (e.key === "End") next = last;
+    switch (e.key) {
+      case "ArrowRight":
+        next = i === last ? 0 : i + 1;
+        break;
+      case "ArrowLeft":
+        next = i === 0 ? last : i - 1;
+        break;
+      case "ArrowDown": {
+        const candidate = (row + 1) * colCount + col;
+        next = candidate <= last ? candidate : last;
+        break;
+      }
+      case "ArrowUp": {
+        const candidate = (row - 1) * colCount + col;
+        next = candidate >= 0 ? candidate : 0;
+        break;
+      }
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = last;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
     setActive(next);
     const btn = tabRefs.current[next];
     if (btn && typeof btn.focus === "function") btn.focus();
@@ -81,64 +115,78 @@ export default function BoxesGrid({
 
   if (normalized.length === 0) return null;
 
+  // Build rows of 2
+  const rows = useMemo(() => {
+    const r = [];
+    for (let i = 0; i < normalized.length; i += 2) {
+      r.push(normalized.slice(i, i + 2));
+    }
+    return r;
+  }, [normalized]);
+
+  const activeRow = Math.floor(active / 2);
+
   return (
     <section className="w-full">
       <div className="mx-auto w-full">
         <LayoutGroup>
           <motion.div layout>
-            {/* 2-column card grid that can host a full-width panel inline */}
-            <motion.div
+            {/* 2-column card grid with a row-scoped panel */}
+            <div
               role="tablist"
               aria-label="Options"
               className="grid grid-cols-2 gap-2 py-4 justify-items-stretch"
-              layout
-              transition={{ layout: { duration: 0.30, ease: [0.22, 1, 0.36, 1] } }}
             >
-              {normalized.map((item, i) => {
-                const isEndOfRow = i % 2 === 1 || i === normalized.length - 1;
-                const rowStart = i - (i % 2);
-                const rowEnd = Math.min(rowStart + 1, normalized.length - 1);
-                const isActiveInThisRow = active >= rowStart && active <= rowEnd;
+              {rows.map((row, rIdx) => (
+                <React.Fragment key={`row-${rIdx}`}>
+                  {/* cards for this row */}
+                  {row.map((item, i) => {
+                    const index = rIdx * 2 + i;
+                    return (
+                      <motion.div
+                        key={item.id ?? item.label ?? item.name ?? index}
+                        onKeyDown={(e) => onKeyDown(e, index)}
+                        layout
+                        className="min-w-0 w-full"
+                      >
+                        <CardTabSimple
+                          label={item.label}
+                          index={index}
+                          isActive={active === index}
+                          onSelect={setActive}
+                          tabId={ids[index].tabId}
+                          panelId={ids[index].panelId}
+                          focusRef={(el) => (tabRefs.current[index] = el)}
+                        />
+                      </motion.div>
+                    );
+                  })}
 
-                return (
-                  <React.Fragment key={item.id ?? item.label ?? item.name ?? i}>
-                    {/* Card */}
-                    <motion.div onKeyDown={(e) => onKeyDown(e, i)} layout className="min-w-0 w-full">
-                      <CardTabSimple
-                        label={item.label}
-                        index={i}
-                        isActive={active === i}
-                        onSelect={setActive}
-                        tabId={ids[i].tabId}
-                        panelId={ids[i].panelId}
-                        focusRef={(el) => (tabRefs.current[i] = el)}
-                      />
-                    </motion.div>
-
-                    {/* Inline expanded paragraph panel below this row */}
-                    {isEndOfRow && isActiveInThisRow && (
-                      <AnimatePresence initial={false} mode="wait">
-                        <motion.div
-                          key={`panel-${active}`}
-                          role="tabpanel"
-                          id={ids[active].panelId}
-                          aria-labelledby={ids[active].tabId}
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.25 }}
-                          className="overflow-hidden col-span-2"
-                        >
-                          <div className="rounded-2xl px-2 py-4 text-center text-white">
-                            <p className="text-sm/6 text-white/80">{normalized[active].paragraph || ""}</p>
-                          </div>
-                        </motion.div>
-                      </AnimatePresence>
+                  {/* row-scoped expander right under this row */}
+                  <AnimatePresence initial={false}>
+                    {activeRow === rIdx && normalized[active] && (
+                      <motion.div
+                        key={`panel-row-${rIdx}`}
+                        role="tabpanel"
+                        id={ids[active].panelId}
+                        aria-labelledby={ids[active].tabId}
+                        className="overflow-hidden col-span-2"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <div className="px-2 py-4 text-center text-white">
+                          <p className="text-sm/6 text-white">
+                            {normalized[active].paragraph || ""}
+                          </p>
+                        </div>
+                      </motion.div>
                     )}
-                  </React.Fragment>
-                );
-              })}
-            </motion.div>
+                  </AnimatePresence>
+                </React.Fragment>
+              ))}
+            </div>
           </motion.div>
         </LayoutGroup>
       </div>
