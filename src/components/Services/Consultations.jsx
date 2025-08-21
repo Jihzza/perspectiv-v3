@@ -80,7 +80,6 @@ export default function Consultations() {
         ]}
       />
 
-
       {STEPS.map((step) => (
         <StepsList
           key={step.title}
