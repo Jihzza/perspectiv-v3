@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import HeroSection from "../components/Hero/HeroSection";
 import ChatbotSection from "../components/Chatbot/ChatbotSection";
-import ServicesDescriptionSection from "../components/Services/ServicesDescriptionSection";
+import Consultations from "../components/Services/Consultations";
+import Training from "../components/Services/Training";
+import Software from "../components/Services/Software";
 import DashboardSection from "../components/Dashboard/DashboardSection";
 import useScrollTrigger from "../hooks/useScrollTrigger";
 import { supabase } from "../lib/supabaseClient";
@@ -31,8 +33,6 @@ export default function HomePage() {
   return (
     <main className="min-h-screen">
       <HeroSection />
-
-      {/* Smooth collapse/expand using CSS Grid rows (0fr -> 1fr) */}
       <div
         ref={chatbotRef}
         className={[
@@ -52,8 +52,9 @@ export default function HomePage() {
           />
         </div>
       </div>
-
-      <ServicesDescriptionSection />
+      <Consultations />
+      <Training />
+      <Software />
       <DashboardSection />
     </main>
   );
