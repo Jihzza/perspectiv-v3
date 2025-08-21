@@ -13,7 +13,7 @@ export default function HeroSection() {
     <section className="w-full h-auto pb-6">
       <div className="container mx-auto px-4 flex flex-col items-center">
         {/* Logo */}
-        <img src={PerspectivLogo} alt="Perspectiv Logo" className="w-45 h-45"/>
+        <img src={PerspectivLogo} alt="Perspectiv Logo" className="w-35 h-35"/>
 
         <p className="text-white text-xl text-center pb-6 font-bold leading-tight tracking-[0.02em]">
           We help you integrate AI into your business!

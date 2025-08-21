@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import SectionCta from "../ui/SectionCta";
 import SectionText from "../ui/SectionText";
 import BoxesGrid from "../ui/BoxesGrid";
 import StepsList from "../ui/StepsList";
@@ -34,8 +36,10 @@ const STEPS = [
 
 export default function Consultations() {
 
+  const sectionRef = useRef(null);
+
   return (
-    <section className="w-full max-w-5xl flex flex-col justify-center items-center mx-auto p-4 space-y-4">
+    <section ref={sectionRef} className="w-full max-w-5xl flex flex-col justify-center items-center mx-auto p-4 space-y-4">
       <SectionText title="Consultations">
         Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since
       </SectionText>
@@ -89,7 +93,9 @@ export default function Consultations() {
         />
       ))}
 
-      <Button>Book a Consultation - 90€/h</Button>
+      <SectionCta sectionRef={sectionRef}>
+        <Button>Book a Consultation - 90€/h</Button>
+      </SectionCta>
     </section>
   );
 }

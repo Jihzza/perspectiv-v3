@@ -1,8 +1,10 @@
+import { useRef } from "react";
 import SectionText from "../ui/SectionText";
 import BoxesGrid from "../ui/BoxesGrid";
 import StepsList from "../ui/StepsList";
 import PhoneIcon from "../../assets/Phone.svg"
 import Button from "../ui/Button"
+import SectionCta from "../ui/SectionCta";
 
 const STEPS = [
   {
@@ -24,10 +26,12 @@ const STEPS = [
 
 export default function Software() {
 
+  const sectionRef = useRef(null);
+
   return (
-    <section className="w-full max-w-5xl flex flex-col justify-center items-center mx-auto p-4 space-y-4">
+    <section ref={sectionRef} className="w-full max-w-5xl flex flex-col justify-center items-center mx-auto p-4 space-y-4">
       <SectionText title="Custom Software">
-      Not every business fits into off-the-shelf tools. That’s why we design and build custom AI software, tailored to your workflows, customers, and data.
+        Not every business fits into off-the-shelf tools. That’s why we design and build custom AI software, tailored to your workflows, customers, and data.
       </SectionText>
 
       <BoxesGrid
@@ -79,7 +83,9 @@ export default function Software() {
         />
       ))}
 
-      <Button>Ask For Quote</Button>
+      <SectionCta sectionRef={sectionRef}>
+        <Button>Ask For Quote</Button>
+      </SectionCta>
     </section>
   );
 }

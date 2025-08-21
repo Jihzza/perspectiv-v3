@@ -92,7 +92,11 @@ export default function BottomNavigation() {
   }, [location.pathname]); // intentionally not depending on items
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black shadow-lg">
+    <nav
+      id="bottom-nav"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-black shadow-lg"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <div className="flex items-center justify-around h-16 px-2">
         {items.map((item, idx) => {
           const active = isActive(item.path, item.isLogo);

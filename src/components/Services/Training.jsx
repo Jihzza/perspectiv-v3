@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import SectionText from "../ui/SectionText";
 import CardGrid from "../ui/CardGrid";
 import PhoneIcon from "../../assets/Phone.svg";
 import Button from "../ui/Button";
+import SectionCta from "../ui/SectionCta";
 
 const SERVICES = [
   {
@@ -43,15 +45,20 @@ const SERVICES = [
 ];
 
 export default function Training() {
+
+  const sectionRef = useRef(null);
+
   return (
-    <section className="w-full max-w-5xl flex flex-col justify-center items-center mx-auto p-4 space-y-4">
+    <section ref={sectionRef} className="w-full max-w-5xl flex flex-col justify-center items-center mx-auto p-4 space-y-4">
       <SectionText title="Training & Upskilling Offers">
         We help teams of all sizes adopt and master AI. Choose the level of support that fits your business:
       </SectionText>
 
       <CardGrid items={SERVICES} />
 
-      <Button>Choose your pace</Button>
+      <SectionCta sectionRef={sectionRef}>
+        <Button>Choose your pace</Button>
+      </SectionCta>
     </section>
   );
 }

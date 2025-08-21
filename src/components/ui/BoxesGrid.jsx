@@ -2,18 +2,18 @@
 import React, { useId, useMemo, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
-function CardTabSimple({ label, index, isActive, onSelect, tabId, panelId, focusRef }) {
+function CardTabSimple({ label, index, isActive, isTabbable, onSelect, tabId, panelId, focusRef }) {
   return (
     <motion.button
       layout
       whileTap={{ scale: 0.97 }}
       transition={{ layout: { duration: 0.30, ease: [0.22, 1, 0.36, 1] } }}
       ref={focusRef}
-      role="tab"
+      role="button"
       id={tabId}
       aria-selected={isActive}
       aria-controls={panelId}
-      tabIndex={isActive ? 0 : -1}
+      tabIndex={isTabbable ? 0 : -1}
       onClick={() => onSelect(index)}
       className={[
         "flex w-full h-30 items-center justify-center rounded-2xl",
@@ -59,9 +59,13 @@ export default function BoxesGrid({
     [items]
   );
 
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(null);
   const listId = useId();
 
+  // Toggle selection on click
+  const handleSelect = (index) => {
+    setActive((prev) => (prev === index ? null : index));
+  };
   // Refs + ids for a11y and focus management
   const tabRefs = useMemo(() => ({ current: [] }), []);
   const ids = useMemo(
@@ -124,7 +128,7 @@ export default function BoxesGrid({
     return r;
   }, [normalized]);
 
-  const activeRow = Math.floor(active / 2);
+  const activeRow = active === null ? -1 : Math.floor(active / 2);
 
   return (
     <section className="w-full">
@@ -142,6 +146,8 @@ export default function BoxesGrid({
                   {/* cards for this row */}
                   {row.map((item, i) => {
                     const index = rIdx * 2 + i;
+                    const isActive = active === index;
+                    const isTabbable = active === null ? index === 0 : isActive;
                     return (
                       <motion.div
                         key={item.id ?? item.label ?? item.name ?? index}
@@ -152,8 +158,9 @@ export default function BoxesGrid({
                         <CardTabSimple
                           label={item.label}
                           index={index}
-                          isActive={active === index}
-                          onSelect={setActive}
+                          isActive={isActive}
+                          isTabbable={isTabbable}
+                          onSelect={handleSelect}
                           tabId={ids[index].tabId}
                           panelId={ids[index].panelId}
                           focusRef={(el) => (tabRefs.current[index] = el)}
@@ -164,10 +171,10 @@ export default function BoxesGrid({
 
                   {/* row-scoped expander right under this row */}
                   <AnimatePresence initial={false}>
-                    {activeRow === rIdx && normalized[active] && (
+                    {active !== null && activeRow === rIdx && normalized[active] && (
                       <motion.div
                         key={`panel-row-${rIdx}`}
-                        role="tabpanel"
+                        role="region"
                         id={ids[active].panelId}
                         aria-labelledby={ids[active].tabId}
                         className="overflow-hidden col-span-2"

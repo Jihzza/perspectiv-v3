@@ -2,7 +2,7 @@
 import React, { useId, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
-function CardTab({ item, index, isActive, onSelect, tabId, panelId, focusRef }) {
+function CardTab({ item, index, isActive, isTabbable, onSelect, tabId, panelId, focusRef }) {
   const Icon = item.icon;
   const isImg = typeof Icon === "string";
 
@@ -12,14 +12,13 @@ function CardTab({ item, index, isActive, onSelect, tabId, panelId, focusRef }) 
       whileTap={{ scale: 0.97 }}
       transition={{ layout: { duration: 0.30, ease: [0.22, 1, 0.36, 1] } }}
       ref={focusRef}
-      role="tab"
+      role="button"
+      aria-expanded={isActive}
       id={tabId}
-      aria-selected={isActive}
       aria-controls={panelId}
-      tabIndex={isActive ? 0 : -1}
+      tabIndex={isTabbable ? 0 : -1}
       onClick={() => onSelect(index)}
       className={[
-        // 👇 the key bit for equal widths
         "flex w-full h-56 flex-col items-center justify-between rounded-2xl",
         "bg-gradient-to-b from-white/10 to-white/5 border border-white/15",
         "text-white py-4 px-2 space-y-4 focus:outline-none focus:ring-2 focus:ring-white/60",
@@ -45,7 +44,12 @@ function CardTab({ item, index, isActive, onSelect, tabId, panelId, focusRef }) 
 }
 
 export default function CardGrid({ items = [] }) {
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(null);
+
+  const handleSelect = (index) => {
+    setActive((prev) => (prev === index ? null : index));
+  };
+
   const listId = useId();
 
   const { ids, tabRefs } = useMemo(() => {
@@ -94,25 +98,32 @@ export default function CardGrid({ items = [] }) {
                   // 👇 allow shrink and force the item wrapper to fill its cell
                   className="min-w-0 w-full"
                 >
-                  <CardTab
-                    item={item}
-                    index={i}
-                    isActive={active === i}
-                    onSelect={setActive}
-                    tabId={ids[i].tabId}
-                    panelId={ids[i].panelId}
-                    focusRef={(el) => (tabRefs.current[i] = el)}
-                  />
+                  {(() => {
+                    const isActive = active === i;
+                    const isTabbable = active === null ? i === 0 : isActive;
+                    return (
+                      <CardTab
+                        item={item}
+                        index={i}
+                        isActive={isActive}
+                        isTabbable={isTabbable}
+                        onSelect={handleSelect}
+                        tabId={ids[i].tabId}
+                        panelId={ids[i].panelId}
+                        focusRef={(el) => (tabRefs.current[i] = el)}
+                      />
+                    );
+                  })()}
                 </motion.div>
               ))}
             </motion.div>
 
             {/* Expanded panel */}
             <AnimatePresence initial={false} mode="wait">
-              {items[active] && (
+              {active !== null && items[active] && (
                 <motion.div
                   key={active}
-                  role="tabpanel"
+                  role="region"
                   id={ids[active].panelId}
                   aria-labelledby={ids[active].tabId}
                   initial={{ opacity: 0, height: 0 }}
