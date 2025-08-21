@@ -66,6 +66,7 @@ export default function BoxesGrid({
   const handleSelect = (index) => {
     setActive((prev) => (prev === index ? null : index));
   };
+
   // Refs + ids for a11y and focus management
   const tabRefs = useMemo(() => ({ current: [] }), []);
   const ids = useMemo(
@@ -128,6 +129,10 @@ export default function BoxesGrid({
     return r;
   }, [normalized]);
 
+  // Widow detection: if total is odd, the last index is a single-item last row.
+  const isWidow = normalized.length % 2 === 1;
+  const widowIndex = isWidow ? normalized.length - 1 : -1;
+
   const activeRow = active === null ? -1 : Math.floor(active / 2);
 
   return (
@@ -148,12 +153,20 @@ export default function BoxesGrid({
                     const index = rIdx * 2 + i;
                     const isActive = active === index;
                     const isTabbable = active === null ? index === 0 : isActive;
+
+                    const itemWrapperClass = [
+                         "min-w-0",
+                         index === widowIndex
+                           ? "col-span-2 justify-self-center w- max-w-md"
+                           : "w-full",
+                       ].join(" ");
+
                     return (
                       <motion.div
                         key={item.id ?? item.label ?? item.name ?? index}
                         onKeyDown={(e) => onKeyDown(e, index)}
                         layout
-                        className="min-w-0 w-full"
+                        className={itemWrapperClass}
                       >
                         <CardTabSimple
                           label={item.label}

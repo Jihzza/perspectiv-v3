@@ -11,6 +11,7 @@ import BottomNavigation from './components/Layout/BottomNavigation'
 import ChatHistoryPage from './pages/ChatHistoryPage'
 import ChatConversationPage from './pages/ChatConversationPage'
 import ChatLayoutPage from './pages/ChatLayoutPage'
+import ScrollToTopButton from './components/ui/ScrollToTopButton'
 
 import AuthProvider from './auth/AuthContext'
 import ProtectedRoute from './auth/ProtectedRoute'
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="*" element={<h1 className="p-6 text-center">Page Not Found</h1>} />
           </Routes>
         </main>
+        <ScrollToTopButton />
         <BottomNavigation />
       </AuthProvider>
     </BrowserRouter>
